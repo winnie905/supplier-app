@@ -1,0 +1,62 @@
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command('node', ['-p',
+  'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+platform :ios, min_ios_version_supported
+prepare_react_native_project!
+
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target 'apex-app' do
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+  end
+end
+
+post_integrate do |installer|
+  require 'xcodeproj'
+
+  app_project_path = File.join(__dir__, 'apex-app.xcodeproj')
+  project = Xcodeproj::Project.open(app_project_path)
+
+  app_target = project.targets.find { |target| target.name == 'apex-app' }
+
+  if app_target
+    app_target.frameworks_build_phase.files.each do |build_file|
+      file_ref = build_file.file_ref
+      next unless file_ref&.display_name == 'libPods-apex-app.a'
+
+      puts "Removing invalid #{file_ref.display_name} from #{app_target.name}"
+      app_target.frameworks_build_phase.remove_build_file(build_file)
+    end
+
+    project.files.each do |file_ref|
+      next unless file_ref.display_name == 'libPods-apex-app.a'
+
+      puts "Removing invalid file reference #{file_ref.display_name}"
+      file_ref.remove_from_project
+    end
+
+    project.save
+  end
+end

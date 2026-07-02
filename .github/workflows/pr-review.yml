@@ -1,0 +1,121 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [dev, main]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code Review
+        if: github.event.action == 'opened'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: 'true'
+          classify_inline_comments: 'false'
+          show_full_output: 'true'
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }} using `gh pr diff`.
+            Focus:
+            - bugs
+            - performance
+            - readability and maintainability
+            Ignore:
+            - dependency manifests and lock files
+            - build, generated, or config-only files
+            Rules:
+            - concise Chinese comments
+            - no trivial comments
+
+            Action:
+            - Inline issues → MUST use mcp__github_inline_comment__create_inline_comment
+            - If issues exist → use `gh pr comment`
+            - Do NOT run `gh pr list`
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh api:*),Bash(git diff:*),Bash(git show:*),Read,Grep,Glob"
+      - name: Build incremental diff
+        if: github.event.action == 'synchronize'
+        run: |
+          git diff ${{ github.event.before }}..${{ github.event.pull_request.head.sha }} > incremental.diff
+      - name: Count diff size
+        id: diff_size
+        if: github.event.action == 'synchronize'
+        run: |
+          lines=$(wc -l < incremental.diff)
+          echo "lines=$lines" >> $GITHUB_OUTPUT
+
+      - name: Set review config
+        if: github.event.action == 'synchronize'
+        id: set_review
+        run: |
+          if [ ${{ steps.diff_size.outputs.lines }} -lt 200 ]; then
+            echo "turns=3" >> $GITHUB_OUTPUT
+            echo "should_review=true" >> $GITHUB_OUTPUT
+          elif [ ${{ steps.diff_size.outputs.lines }} -lt 800 ]; then
+            echo "turns=5" >> $GITHUB_OUTPUT
+            echo "should_review=true" >> $GITHUB_OUTPUT
+          elif [ ${{ steps.diff_size.outputs.lines }} -lt 1500 ]; then
+            echo "turns=7" >> $GITHUB_OUTPUT
+            echo "should_review=true" >> $GITHUB_OUTPUT
+          else
+            echo "turns=0" >> $GITHUB_OUTPUT
+            echo "should_review=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Review only newly pushed commits
+        if: github.event.action == 'synchronize' && steps.set_review.outputs.should_review == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: 'true'
+          classify_inline_comments: 'false'
+          show_full_output: 'true'
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }}
+            Review ONLY the changes in the file `incremental.diff`.
+
+            STRICT RULES:
+            - DO NOT run git diff again
+            - DO NOT review the full PR
+            - DO NOT comment on unchanged code
+            - DO NOT repeat previous comments
+            - Do NOT run `gh pr view`
+            - Do NOT query PR metadata
+            - Use only the provided diff / incremental.diff
+
+            Focus:
+            - bugs
+            - performance
+            - readability and maintainability
+            Ignore:
+            - dependency manifests and lock files
+            - build, generated, or config-only files
+            Rules:
+            - concise Chinese comments
+            - no trivial comments
+
+            Action:
+            - If issues exist, post a short overall summary using `gh pr comment`
+            - Do NOT run `gh pr list`
+            - After a successful comment, stop immediately
+            - Never post a second summary comment
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(git diff:*),Read,Grep,Glob"
+            --max-turns ${{ steps.set_review.outputs.turns }}

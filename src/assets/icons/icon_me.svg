@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+  <ellipse
+    cx="10"
+    cy="5"
+    rx="4.2"
+    ry="4.2"
+    stroke="currentColor"
+    stroke-width="1.6"
+  />
+
+  <path
+    d="M8.05 10.95C8.55 11.35 9.2 11.6 10 11.6C10.8 11.6 11.45 11.35 11.95 10.95"
+    stroke="currentColor"
+    stroke-width="1.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <path
+    d="M6.04 11.68L2.58 13.8C2.34 13.95 2.2 14.2 2.2 14.48V18.9C2.2 19.12 2.38 19.3 2.6 19.3H17.4C17.62 19.3 17.8 19.12 17.8 18.9V14.48C17.8 14.25 17.7 14.03 17.53 13.88L14.71 11.59"
+    stroke="currentColor"
+    stroke-width="1.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

@@ -1,0 +1,6 @@
+android/.gradle
+android/app/build
+coverage
+ios/Pods
+ios/build
+node_modules
