@@ -6,7 +6,6 @@ import DeviceInfo from 'react-native-device-info';
 
 import { env } from '@/config/env';
 import { APP_NAME } from '@/constants/app';
-import { AUTH_STRINGS } from '@/constants/legalContent';
 import { useAuthStore } from '@/store/authStore';
 import { ProductEnum } from '@/types';
 import { buildUserAgent } from '@/utils/app';
@@ -224,9 +223,9 @@ async function signOutOnce(): Promise<void> {
  */
 function getUnauthorizedAlertText() {
   return {
-    title: AUTH_STRINGS.sessionExpiredTitle,
-    message: AUTH_STRINGS.sessionExpiredMessage,
-    confirmText: AUTH_STRINGS.sessionExpiredConfirm,
+    title: '登录已过期',
+    message: '为了保障账号安全，请重新登录后继续使用。',
+    confirmText: '重新登录',
   };
 }
 

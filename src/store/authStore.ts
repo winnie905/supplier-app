@@ -20,20 +20,26 @@ const MOCK_USER: AuthUser = {
   lastName: '用户',
 };
 
-const buildMockSession = (account: string): StoredSession => ({
-  token: 'mock-access-token',
-  refreshToken: 'mock-refresh-token',
-  expiredAt: Date.now() + 24 * 60 * 60 * 1000,
-  expiresIn: '86400',
-  refreshTokenExpiredAt: '',
-  refreshTokenExpiresIn: '',
-  products: [],
-  user: {
-    ...MOCK_USER,
-    email: account.includes('@') ? account : MOCK_USER.email,
-    username: account || MOCK_USER.username,
-  },
-});
+const buildMockSession = (account: string): StoredSession => {
+  const normalizedAccount = account.trim();
+
+  return {
+    token: 'mock-access-token',
+    refreshToken: 'mock-refresh-token',
+    expiredAt: Date.now() + 24 * 60 * 60 * 1000,
+    expiresIn: '86400',
+    refreshTokenExpiredAt: '',
+    refreshTokenExpiresIn: '',
+    products: [],
+    user: {
+      ...MOCK_USER,
+      id: `mock-user:${normalizedAccount.toLowerCase()}`,
+      email: normalizedAccount.includes('@') ? normalizedAccount : MOCK_USER.email,
+      username: normalizedAccount || MOCK_USER.username,
+      name: normalizedAccount || MOCK_USER.name,
+    },
+  };
+};
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,

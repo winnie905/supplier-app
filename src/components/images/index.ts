@@ -15,4 +15,12 @@ export const apexLogoImage: ImageSourcePropType = require('@/assets/images/apex.
 export const loadingGifImage: ImageSourcePropType = require('@/assets/images/loading.gif');
 export const goIconImage: ImageSourcePropType = require('@/assets/images/go.png');
 export const emptyPageImage: ImageSourcePropType = require('@/assets/images/dataEmpty.png');
+export const managementEmptyImage: ImageSourcePropType = require('@/assets/images/managementEmpty.png');
+export const receivingBackgroundImage: ImageSourcePropType = require('@/assets/images/receiving-bg.png');
+export const materialConfirmation: ImageSourcePropType = require('@/assets/images/materialConfirmation.png');
+export const packingRecords: ImageSourcePropType = require('@/assets/images/packing.png');
+export const sewingRecords: ImageSourcePropType = require('@/assets/images/sewing.png');
+export const cuttingRecords: ImageSourcePropType = require('@/assets/images/cutting.png');
+export const searchEmpty: ImageSourcePropType = require('@/assets/images/searchEmpty.png');
+export const receivingCardDecorImage: ImageSourcePropType = require('@/assets/images/receivingCard.png');
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */

@@ -5,7 +5,7 @@
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { SESSION_CHECK_INTERVAL_MS } from '@/constants/auth';
-import { getUserInfo } from '@/services/auth/services/authService';
+import { getUserInfo } from '@/services/auth/authService';
 import { useAuthStore } from '@/store/authStore';
 import { getSession } from '@/utils/auth/authStorage';
 import { buildProductParam, findKickedOfflineError } from '@/utils/auth/sessionError';

@@ -2,9 +2,23 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, type TextStyle, View } from 'react-native';
 
 import { LEGAL_PRIVACY_POLICY } from '@/constants/legalContent';
+import { TNC_DOCUMENT_TITLES } from '@/constants/tnc';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 const META_TEXT_COLOR = '#7A8AA0';
+
+const formatEffectiveDateLabel = (isoDate?: string, fallback?: string) => {
+  if (!isoDate) {
+    return fallback ?? '';
+  }
+
+  const [year, month, day] = isoDate.split('-');
+  if (!year || !month || !day) {
+    return isoDate;
+  }
+
+  return `${year}年${month}月${day}日`;
+};
 
 const splitStrongTag = (value: string): [string, string, string] => {
   const match = /^(.*)<strong>(.*)<\/strong>(.*)$/s.exec(value);
@@ -39,11 +53,15 @@ interface PolicySection {
 interface PrivacyPolicyProps {
   onPressPersonalInfoCollectionList: () => void;
   onPressSdkShareList: () => void;
+  version?: string;
+  effectiveDate?: string;
 }
 
 export const PrivacyPolicy = ({
   onPressPersonalInfoCollectionList,
   onPressSdkShareList,
+  version,
+  effectiveDate,
 }: PrivacyPolicyProps) => {
   const { colors } = useAppTheme();
   const policy = LEGAL_PRIVACY_POLICY;
@@ -62,14 +80,34 @@ export const PrivacyPolicy = ({
   );
 
   const renderMeta = () => {
+    const displayEffectiveDate = formatEffectiveDateLabel(
+      effectiveDate,
+      policy.metaList.find((item) => item.key === 'effectiveDate')?.value,
+    );
+
     return (
       <View style={styles.metaBlock}>
-        {policy.metaList.map((item) => (
-          <View key={item.key} style={styles.metaRow}>
-            <Text style={styles.metaLabel}>{item.label}：</Text>
-            <Text style={styles.metaValue}>{item.value}</Text>
+        <Text style={[styles.documentTitle, themeStyles.strong]}>
+          {TNC_DOCUMENT_TITLES.PRIVACY_POLICY}
+        </Text>
+        {version ? (
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>版本号：</Text>
+            <Text style={styles.metaValue}>{version}</Text>
           </View>
-        ))}
+        ) : null}
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLabel}>生效日期：</Text>
+          <Text style={styles.metaValue}>{displayEffectiveDate}</Text>
+        </View>
+        {policy.metaList
+          .filter((item) => item.key !== 'effectiveDate')
+          .map((item) => (
+            <View key={item.key} style={styles.metaRow}>
+              <Text style={styles.metaLabel}>{item.label}：</Text>
+              <Text style={styles.metaValue}>{item.value}</Text>
+            </View>
+          ))}
       </View>
     );
   };
@@ -97,7 +135,8 @@ export const PrivacyPolicy = ({
             <Text style={themeStyles.strong}>{item.title}：</Text>
             {item.key === 'thirdPartySdk' ? (
               <Text>
-                为实现扫码解析、崩溃日志收集等基础技术功能，本软件接入了第三方 SDK。我们会对其进行严格的安全监测。详细名录请见
+                为实现扫码解析、崩溃日志收集等基础技术功能，本软件接入了第三方
+                SDK。我们会对其进行严格的安全监测。详细名录请见
                 <Text
                   style={{ color: colors.primary }}
                   onPress={(event) => {
@@ -198,6 +237,12 @@ export const PrivacyPolicy = ({
 const styles = StyleSheet.create({
   metaBlock: {
     marginBottom: 20,
+  },
+  documentTitle: {
+    fontSize: 20,
+    lineHeight: 30,
+    fontWeight: '700',
+    marginBottom: 16,
   },
   metaRow: {
     flexDirection: 'row',

@@ -1,16 +1,11 @@
 import { ApolloProvider } from '@apollo/client/react';
-import {
-  createNavigationContainerRef,
-  DarkTheme,
-  DefaultTheme,
-  NavigationContainer,
-} from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Platform, useColorScheme } from 'react-native';
 import BootSplash from 'react-native-bootsplash';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppProviders } from '@/app/AppProviders';
+import { navigationRef } from '@/app/navigationRef';
 import { Loading } from '@/components/Loading';
 import { ToastProvider } from '@/components/toast/Toast';
 import { apolloClient } from '@/graphql/client';
@@ -18,11 +13,8 @@ import { useAppInitialization } from '@/hooks/useAppInitialization';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { syncAndroidNavigationBar } from '@/navigation/androidNavigationBar';
 import { RootNavigator } from '@/navigation/RootNavigator';
-import type { RootStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
 import { useNetworkStore } from '@/store/networkStore';
-
-const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const AppContent = () => {
   const { isReady } = useAppInitialization();
@@ -95,11 +87,9 @@ const App = () => {
   const systemColorScheme = useColorScheme();
 
   return (
-    <SafeAreaProvider>
-      <AppProviders systemColorMode={systemColorScheme === 'dark' ? 'dark' : 'light'}>
-        <AppContent />
-      </AppProviders>
-    </SafeAreaProvider>
+    <AppProviders systemColorMode={systemColorScheme === 'dark' ? 'dark' : 'light'}>
+      <AppContent />
+    </AppProviders>
   );
 };
 

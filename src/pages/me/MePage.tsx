@@ -4,10 +4,11 @@ import { useMemo, useState } from 'react';
 import { ImageBackground, ScrollView, StyleSheet, View } from 'react-native';
 import { getVersion } from 'react-native-device-info';
 
+import CareModeIcon from '@/assets/icons/care.svg';
 import InfoIcon from '@/assets/icons/icon_about.svg';
 import { AppModal } from '@/components/AppModal';
 import { meBackgroundImage } from '@/components/images';
-import { COMMON_STRINGS, ME_STRINGS } from '@/constants/legalContent';
+import { ToggleSwitch } from '@/components/ToggleSwitch';
 import { ROUTES } from '@/constants/routes';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import type { MeScreenProps } from '@/navigation/types';
@@ -26,6 +27,7 @@ export const MePage = ({ navigation }: MePageProps) => {
   const signOut = useAuthStore((state) => state.signOut);
   const user = useAuthStore((state) => state.user);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+  const [isCareMode, setIsCareMode] = useState(false);
   const setLoading = useAppStore((state) => state.setLoading);
 
   const settingsItems = useMemo(
@@ -36,10 +38,15 @@ export const MePage = ({ navigation }: MePageProps) => {
           navigation.navigate(ROUTES.ME.ABOUT);
         },
         rightLabel: getVersion(),
-        title: ME_STRINGS.about,
+        title: '关于',
+      },
+      {
+        icon: <CareModeIcon color={colors.text} />,
+        rightLabel: <ToggleSwitch value={isCareMode} onValueChange={setIsCareMode} />,
+        title: '关怀模式',
       },
     ],
-    [colors.text, navigation],
+    [colors.text, navigation, isCareMode],
   );
 
   const handleCloseLogoutModal = () => {
@@ -105,7 +112,7 @@ export const MePage = ({ navigation }: MePageProps) => {
             </Card>
 
             <MeLogoutSection
-              label={ME_STRINGS.logout}
+              label="退出登录"
               onPress={() => {
                 setIsLogoutOpen(true);
               }}
@@ -117,10 +124,10 @@ export const MePage = ({ navigation }: MePageProps) => {
           visible={isLogoutOpen}
           animationType="fade"
           onClose={handleCloseLogoutModal}
-          title={ME_STRINGS.logoutTitle}
-          content={ME_STRINGS.logoutConfirm}
-          cancelText={COMMON_STRINGS.cancel}
-          okText={ME_STRINGS.logout}
+          title="退出登录"
+          content="确定要退出当前账号吗？"
+          cancelText="取消"
+          okText="退出登录"
           onCancel={handleCloseLogoutModal}
           onOk={handleConfirmLogout}
         />

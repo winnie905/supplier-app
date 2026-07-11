@@ -1,9 +1,9 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { type ReactNode, useCallback } from 'react';
-import { Platform, StatusBar, StyleSheet, View } from 'react-native';
+import { ImageBackground, Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LOGIN_THEME } from '@/constants/loginTheme';
+import { authLoginBackgroundImage } from '@/components/images';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { getAndroidGestureBottomInset } from '@/navigation/androidNavigationBar';
 import { getStatusBarContentStyle } from '@/navigation/stackScreenOptions';
@@ -16,7 +16,8 @@ interface LoginShellProps {
 const LOGIN_STATUS_BAR_STYLE = 'dark-content' as const;
 
 /**
- * 登录页容器：浅蓝灰背景 + 安全区避让。
+ * 登录页全屏背景：背景图铺满屏幕，内容区避让安全区。
+ * 背景限制在 root 内（overflow: hidden），避免 Android 切换根导航时子视图仍挂在旧父节点上。
  */
 export const LoginShell = ({ children }: LoginShellProps) => {
   const insets = useSafeAreaInsets();
@@ -45,6 +46,11 @@ export const LoginShell = ({ children }: LoginShellProps) => {
 
   return (
     <View style={styles.root}>
+      <ImageBackground
+        resizeMode="cover"
+        source={authLoginBackgroundImage}
+        style={StyleSheet.absoluteFill}
+      />
       <View
         style={[
           styles.content,
@@ -63,7 +69,8 @@ export const LoginShell = ({ children }: LoginShellProps) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: LOGIN_THEME.pageBg,
+    overflow: 'hidden',
+    backgroundColor: '#EFF4FF',
   },
   content: {
     flex: 1,

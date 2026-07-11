@@ -1,8 +1,8 @@
 import { useIsFocused } from '@react-navigation/native';
 import { Text } from 'design-system-native';
+import type { GestureResponderEvent } from 'react-native';
 
 import { AppModal } from '@/components/AppModal';
-import { AUTH_STRINGS } from '@/constants/legalContent';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface ServiceAgreementModalProps {
@@ -36,17 +36,17 @@ export const ServiceAgreementModal = ({
           阅读并同意
           <Text
             style={{ color: colors.primary }}
-            onPress={(event) => {
+            onPress={(event: GestureResponderEvent) => {
               event.stopPropagation();
               onPressUserServiceAgreement();
             }}
           >
-            《用户服务协议》
+            《用户协议》
           </Text>
           和
           <Text
             style={{ color: colors.primary }}
-            onPress={(event) => {
+            onPress={(event: GestureResponderEvent) => {
               event.stopPropagation();
               onPressPrivacyPolicy();
             }}
@@ -55,8 +55,8 @@ export const ServiceAgreementModal = ({
           </Text>
         </Text>
       }
-      cancelText={AUTH_STRINGS.disagree}
-      okText={AUTH_STRINGS.agree}
+      cancelText="不同意"
+      okText="同意"
       onCancel={onDisagree}
       onOk={onAgree}
     />

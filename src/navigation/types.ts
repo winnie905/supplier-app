@@ -10,8 +10,7 @@ export interface RootStackParamList extends ParamListBase {
 }
 
 export interface AuthStackParamList extends ParamListBase {
-  Login: { selectedCountry?: PhoneCountryCode } | undefined;
-  CountryRegionSelect: { currentCountry: PhoneCountryCode };
+  Login: undefined;
   PersonalInfoCollectionList: undefined;
   PrivacyPolicy: undefined;
   SdkShareList: undefined;
@@ -29,6 +28,12 @@ export interface ReportsStackParamList extends ParamListBase {
 export interface LogisticsStackParamList extends ParamListBase {
   LogisticsHome: undefined;
   QrScan: undefined;
+  ReceivingSearch: { initialKeyword?: string } | undefined;
+  MaterialConfirmation: { productionColorId: string };
+  ExceptionReplyList: { productionColorId: string; module: 'material' | 'cutting' };
+  CuttingRecords: { productionColorId: string };
+  SewingRecords: { productionColorId: string };
+  PackingRecords: { productionColorId: string };
 }
 
 export interface MessagesStackParamList extends ParamListBase {
@@ -38,6 +43,10 @@ export interface MessagesStackParamList extends ParamListBase {
 export interface MeStackParamList extends ParamListBase {
   About: undefined;
   MeHome: undefined;
+  PersonalInfoCollectionList: undefined;
+  PrivacyPolicy: undefined;
+  SdkShareList: undefined;
+  UserServiceAgreement: undefined;
 }
 
 export interface AppTabParamList extends ParamListBase {

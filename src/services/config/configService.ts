@@ -1,6 +1,6 @@
 import { apolloClient } from '@/graphql/client';
 
-import { GET_ASSET_HOST_QUERY } from '../graphql/queries';
+import { GET_ASSET_HOST_QUERY } from './queries';
 
 interface GetAssetHostQueryResult {
   config: {

@@ -5,7 +5,6 @@ export const ROUTES = {
   },
   AUTH: {
     LOGIN: 'Login',
-    COUNTRY_REGION_SELECT: 'CountryRegionSelect',
     PERSONAL_INFO_COLLECTION_LIST: 'PersonalInfoCollectionList',
     PRIVACY_POLICY: 'PrivacyPolicy',
     SDK_SHARE_LIST: 'SdkShareList',
@@ -27,6 +26,12 @@ export const ROUTES = {
   LOGISTICS: {
     LOGISTICS_HOME: 'LogisticsHome',
     QR_SCAN: 'QrScan',
+    SEARCH: 'ReceivingSearch',
+    MATERIAL_CONFIRMATION: 'MaterialConfirmation',
+    EXCEPTION_REPLY_LIST: 'ExceptionReplyList',
+    CUTTING_RECORDS: 'CuttingRecords',
+    SEWING_RECORDS: 'SewingRecords',
+    PACKING_RECORDS: 'PackingRecords',
   },
   MESSAGES: {
     MESSAGES_HOME: 'MessagesHome',
@@ -34,5 +39,9 @@ export const ROUTES = {
   ME: {
     ME_HOME: 'MeHome',
     ABOUT: 'About',
+    USER_SERVICE_AGREEMENT: 'UserServiceAgreement',
+    PRIVACY_POLICY: 'PrivacyPolicy',
+    PERSONAL_INFO_COLLECTION_LIST: 'PersonalInfoCollectionList',
+    SDK_SHARE_LIST: 'SdkShareList',
   },
 } as const;

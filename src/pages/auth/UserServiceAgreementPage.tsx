@@ -1,17 +1,16 @@
 import { Box } from 'design-system-native';
 import { ScrollView, StyleSheet } from 'react-native';
 
+import { useTncVersions } from '@/hooks/tnc/useTncVersions';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import type { AuthScreenProps } from '@/navigation/types';
-import { ServiceAgreement } from '@/sections/auth/tnc/ServiceAgreement';
-
-type UserServiceAgreementPageProps = AuthScreenProps<'UserServiceAgreement'>;
+import { TncHtmlContent } from '@/sections/tnc/TncHtmlContent';
 
 /**
- * 用户服务协议全文。
+ * 用户服务协议全文（后端 HTML 富文本）。
  */
-export const UserServiceAgreementPage = (_props: UserServiceAgreementPageProps) => {
+export const UserServiceAgreementPage = () => {
   const { colors } = useAppTheme();
+  const { userAgreement } = useTncVersions();
 
   return (
     <Box style={[styles.root, { backgroundColor: colors.background }]}>
@@ -20,7 +19,7 @@ export const UserServiceAgreementPage = (_props: UserServiceAgreementPageProps) 
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <ServiceAgreement />
+        {userAgreement?.content ? <TncHtmlContent html={userAgreement.content} /> : null}
       </ScrollView>
     </Box>
   );

@@ -34,6 +34,10 @@ export const NATIVE_STACK_STATUS_BAR_ON_LIGHT_BG: NativeStackStatusBarStyle = 'd
 const StackSafeAreaHeader = ({ back, options, route }: NativeStackHeaderProps) => {
   const insets = useSafeAreaInsets();
   const title = getHeaderTitle(options, route.name);
+  const headerTransparent = options.headerTransparent === true;
+  const headerStyle = headerTransparent
+    ? [options.headerStyle, { backgroundColor: 'transparent' }]
+    : options.headerStyle;
 
   return (
     <Header
@@ -48,14 +52,17 @@ const StackSafeAreaHeader = ({ back, options, route }: NativeStackHeaderProps) =
       {...(options.headerShadowVisible != null
         ? { headerShadowVisible: options.headerShadowVisible }
         : {})}
-      {...(options.headerStyle != null ? { headerStyle: options.headerStyle } : {})}
+      {...(headerStyle != null ? { headerStyle } : {})}
       {...(options.headerTintColor != null ? { headerTintColor: options.headerTintColor } : {})}
       {...(options.headerTitle != null ? { headerTitle: options.headerTitle } : {})}
       {...(options.headerTitleAlign != null ? { headerTitleAlign: options.headerTitleAlign } : {})}
       {...(options.headerTitleStyle != null ? { headerTitleStyle: options.headerTitleStyle } : {})}
-      {...(options.headerTransparent != null
-        ? { headerTransparent: options.headerTransparent }
-        : {})}
+      {...(headerTransparent ? { headerTransparent: true } : {})}
+      {...(options.headerBackground != null
+        ? { headerBackground: options.headerBackground }
+        : headerTransparent
+          ? { headerBackground: () => null }
+          : {})}
     />
   );
 };

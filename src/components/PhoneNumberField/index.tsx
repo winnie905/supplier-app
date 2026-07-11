@@ -1,4 +1,7 @@
 import { Pressable, Text } from 'design-system-native';
+import countries from 'i18n-iso-countries';
+import en from 'i18n-iso-countries/langs/en.json';
+import zh from 'i18n-iso-countries/langs/zh.json';
 import {
   AsYouType,
   type CountryCode,
@@ -11,13 +14,24 @@ import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { ClearableInput } from '@/components/ClearableInput';
 import { SelectionModal, type SelectionModalOption } from '@/components/SelectionModal';
-import { AUTH_STRINGS, COUNTRY_LABELS } from '@/constants/legalContent';
+
+countries.registerLocale(zh);
+countries.registerLocale(en);
 
 export type PhoneCountryCode = CountryCode;
 
 interface CountryOption extends SelectionModalOption<PhoneCountryCode> {
   callingCode: string;
 }
+
+const COUNTRY_LABEL_KEYS: Partial<Record<PhoneCountryCode, string>> = {
+  CN: '中国',
+  HK: '中国香港',
+  MO: '中国澳门',
+  TW: '中国台湾',
+  AC: '阿森松岛',
+  TA: '特里斯坦达库尼亚',
+};
 
 export interface PhoneNumberFieldProps {
   country: PhoneCountryCode;
@@ -34,8 +48,14 @@ export const getCallingCodeText = (country: PhoneCountryCode) => {
   return `+${getCountryCallingCode(country)}`;
 };
 
-const getCountryLabel = (country: PhoneCountryCode) => {
-  return COUNTRY_LABELS[country] ?? country;
+const getCountryLabel = (country: PhoneCountryCode, t: (key: string) => string) => {
+  const labelKey = COUNTRY_LABEL_KEYS[country];
+
+  if (labelKey) {
+    return t(labelKey);
+  }
+
+  return countries.getName(country, 'zh') ?? country;
 };
 
 const getDisplayValue = (value: string | undefined, country: PhoneCountryCode) => {
@@ -57,15 +77,17 @@ const getDisplayValue = (value: string | undefined, country: PhoneCountryCode) =
 const toPhoneValue = (text: string, country: PhoneCountryCode) => {
   const inputText = text.trim();
 
-  if (!inputText) {
-    return '';
+  if (!inputText) return '';
+
+  const formatter = new AsYouType(country);
+  const formattedText = formatter.input(inputText);
+  const phone = formatter.getNumber();
+
+  if (phone?.isValid()) {
+    return phone.number;
   }
 
-  if (inputText.startsWith('+')) {
-    return inputText.replace(/\s/g, '');
-  }
-
-  return new AsYouType(country).input(inputText).replace(/\s/g, '');
+  return formattedText;
 };
 
 export const isValidPhoneNumberByCountry = (value: string, country: PhoneCountryCode) => {
@@ -84,14 +106,14 @@ export const PhoneNumberField = ({
   style,
 }: PhoneNumberFieldProps) => {
   const [modalVisible, setModalVisible] = useState(false);
-  const resolvedPlaceholder = placeholder ?? AUTH_STRINGS.phonePlaceholder;
+  const resolvedPlaceholder = placeholder ?? '请输入手机号';
 
   const countryOptions = useMemo<CountryOption[]>(() => {
     return getCountries()
       .map((item) => ({
         value: item,
         callingCode: getCallingCodeText(item),
-        label: getCallingCodeText(item) + '   ' + getCountryLabel(item),
+        label: getCallingCodeText(item) + '   ' + getCountryLabel(item, (key) => key),
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, []);
@@ -150,7 +172,7 @@ export const PhoneNumberField = ({
         title="选择国家/地区"
         value={country}
         options={countryOptions}
-        searchPlaceholder="搜索国家/地区或区号"
+        searchPlaceholder="搜索国家/地区"
         onClose={() => setModalVisible(false)}
         onSelect={handleSelectCountry}
         getSearchText={(item) => `${item.callingCode}${item.label}${item.value}`}

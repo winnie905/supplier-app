@@ -6,8 +6,8 @@ import { SettingsListItem } from '@/components/setting/SettingsListItem';
 
 interface SettingsItem {
   icon: ReactNode;
-  onPress: () => void;
-  rightLabel?: string;
+  onPress?: () => void;
+  rightLabel?: ReactNode;
   title: string;
 }
 
@@ -22,9 +22,9 @@ export const MeSettingsSection = ({ items }: MeSettingsSectionProps) => {
         <SettingsListItem
           key={item.title}
           icon={item.icon}
-          onPress={item.onPress}
           title={item.title}
           isLast={index === items.length - 1}
+          {...(item.onPress ? { onPress: item.onPress } : {})}
           {...(item.rightLabel ? { rightLabel: item.rightLabel } : {})}
         />
       ))}

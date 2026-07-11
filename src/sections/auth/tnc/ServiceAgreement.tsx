@@ -2,9 +2,23 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, type TextStyle, View } from 'react-native';
 
 import { LEGAL_SERVICE_AGREEMENT } from '@/constants/legalContent';
+import { TNC_DOCUMENT_TITLES } from '@/constants/tnc';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 const META_TEXT_COLOR = '#6B7A90';
+
+const formatEffectiveDateLabel = (isoDate?: string, fallback?: string) => {
+  if (!isoDate) {
+    return fallback ?? '';
+  }
+
+  const [year, month, day] = isoDate.split('-');
+  if (!year || !month || !day) {
+    return isoDate;
+  }
+
+  return `${year}年${month}月${day}日`;
+};
 
 const splitStrongTag = (value: string): [string, string, string] => {
   const match = /^(.*)<strong>(.*)<\/strong>(.*)$/s.exec(value);
@@ -16,7 +30,12 @@ const splitStrongTag = (value: string): [string, string, string] => {
   return [match[1] ?? '', match[2] ?? '', match[3] ?? ''];
 };
 
-export const ServiceAgreement = () => {
+interface ServiceAgreementProps {
+  version?: string;
+  effectiveDate?: string;
+}
+
+export const ServiceAgreement = ({ version, effectiveDate }: ServiceAgreementProps) => {
   const { colors, tokens } = useAppTheme();
   const agreement = LEGAL_SERVICE_AGREEMENT;
 
@@ -38,11 +57,25 @@ export const ServiceAgreement = () => {
   );
 
   const renderMeta = () => {
+    const displayEffectiveDate = formatEffectiveDateLabel(
+      effectiveDate,
+      agreement.meta.effectiveDate,
+    );
+
     return (
       <View style={styles.metaBlock}>
+        <Text style={[styles.documentTitle, themeStyles.text]}>
+          {TNC_DOCUMENT_TITLES.USER_AGREEMENT}
+        </Text>
+        {version ? (
+          <Text style={styles.metaText}>
+            <Text style={themeStyles.metaLabel}>版本号：</Text>
+            {version}
+          </Text>
+        ) : null}
         <Text style={styles.metaText}>
           <Text style={themeStyles.metaLabel}>{agreement.meta.effectiveDateLabel}</Text>
-          {agreement.meta.effectiveDate}
+          {displayEffectiveDate}
         </Text>
 
         <Text style={styles.metaText}>
@@ -80,14 +113,14 @@ export const ServiceAgreement = () => {
           const entry = item as { label: string; content: string };
 
           return (
-          <View key={itemKey} style={styles.bulletRow}>
-            <Text style={[styles.bullet, themeStyles.text]}>•</Text>
+            <View key={itemKey} style={styles.bulletRow}>
+              <Text style={[styles.bullet, themeStyles.text]}>•</Text>
 
-            <Text style={[styles.bulletContent, themeStyles.text]}>
-              <Text style={themeStyles.text}>{entry.label}：</Text>
-              <Text style={themeStyles.text}>{entry.content}</Text>
-            </Text>
-          </View>
+              <Text style={[styles.bulletContent, themeStyles.text]}>
+                <Text style={themeStyles.text}>{entry.label}：</Text>
+                <Text style={themeStyles.text}>{entry.content}</Text>
+              </Text>
+            </View>
           );
         })}
       </View>
@@ -108,6 +141,12 @@ export const ServiceAgreement = () => {
 const styles = StyleSheet.create({
   metaBlock: {
     marginBottom: 20,
+  },
+  documentTitle: {
+    fontSize: 20,
+    lineHeight: 30,
+    fontWeight: '700',
+    marginBottom: 16,
   },
   metaText: {
     lineHeight: 24,

@@ -6,7 +6,6 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { createStackScreenOptions, withStackScreenLayout } from '@/navigation/stackScreenOptions';
 import type { AuthStackParamList } from '@/navigation/types';
 import { LoginPage } from '@/pages/auth/LoginPage';
-import { CountryRegionSelectPage } from '@/pages/auth/CountryRegionSelectPage';
 import { PersonalInfoCollectionListPage } from '@/pages/auth/PersonalInfoCollectionListPage';
 import { PrivacyPolicyPage } from '@/pages/auth/PrivacyPolicyPage';
 import { SdkShareListPage } from '@/pages/auth/SdkShareListPage';
@@ -38,11 +37,6 @@ export const AuthNavigator = () => {
     [colors.background],
   );
 
-  const CountryRegionSelectScreen = useMemo(
-    () => withStackScreenLayout(CountryRegionSelectPage, { backgroundColor: colors.background }),
-    [colors.background],
-  );
-
   return (
     <Stack.Navigator
       screenOptions={({ navigation }) =>
@@ -70,21 +64,11 @@ export const AuthNavigator = () => {
       />
 
       <Stack.Screen
-        component={CountryRegionSelectScreen}
-        name={ROUTES.AUTH.COUNTRY_REGION_SELECT}
+        component={UserServiceAgreementScreen}
+        name={ROUTES.AUTH.USER_SERVICE_AGREEMENT}
         options={{
           headerShown: true,
-          title: '选择国家/地区',
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
-        }}
-      />
-
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: '用户服务协议',
+          title: '供应商协同平台用户协议',
           headerStyle: {
             backgroundColor: colors.background,
           },

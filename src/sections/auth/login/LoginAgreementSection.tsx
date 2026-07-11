@@ -43,7 +43,7 @@ export const LoginAgreementSection = ({
         </CheckboxIndicator>
       </Checkbox>
       <View style={styles.textWrap}>
-        <Text style={{ color: colors.textMuted, fontSize: tokens.typography.fontSize.sm }}>
+        <Text style={{ color: '#8A98AD', fontSize: tokens.typography.fontSize.sm }}>
           阅读并同意
           <Text
             style={{ color: colors.primary, fontSize: tokens.typography.fontSize.sm }}
@@ -52,9 +52,8 @@ export const LoginAgreementSection = ({
               onPressUserServiceAgreement();
             }}
           >
-            《用户服务协议》
+            《用户协议》
           </Text>
-          和
           <Text
             style={{ color: colors.primary, fontSize: tokens.typography.fontSize.sm }}
             onPress={(event) => {
@@ -76,9 +75,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
-
   checkboxTouchArea: {
     width: 32,
     height: 32,
@@ -86,12 +84,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 4,
   },
-
   textWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 4,
     flexShrink: 1,
   },
 });

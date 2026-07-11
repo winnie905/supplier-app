@@ -3,7 +3,6 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { authLoginLogoImage } from '@/components/images';
-import { ABOUT_STRINGS } from '@/constants/legalContent';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { getAndroidGestureBottomInset } from '@/navigation/androidNavigationBar';
 
@@ -44,7 +43,7 @@ export const AboutSummarySection = ({ appVersion }: AboutSummarySectionProps) =>
           },
         ]}
       >
-        {ABOUT_STRINGS.copyright}
+        {'Copyright © 2025 All rights reserved.\n粤ICP备2025408736号-1'}
       </Text>
     </View>
   );
