@@ -5,6 +5,8 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { createStackScreenOptions } from '@/navigation/stackScreenOptions';
 import type { AppsStackParamList } from '@/navigation/types';
 import { AppsHomePage } from '@/pages/apps/AppsHomePage';
+import { AppsSearchPage } from '@/pages/apps/AppsSearchPage';
+import { ProductionOrdersPage } from '@/pages/apps/ProductionOrdersPage';
 
 const Stack = createNativeStackNavigator<AppsStackParamList>();
 
@@ -25,7 +27,26 @@ export const AppsNavigator = () => {
       <Stack.Screen
         component={AppsHomePage}
         name={ROUTES.APPS.APPS_HOME}
-        options={{ title: '应用' }}
+        options={{
+          headerShown: false,
+          title: '应用',
+          statusBarStyle: 'light',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+      <Stack.Screen
+        component={ProductionOrdersPage}
+        name={ROUTES.APPS.PRODUCTION_ORDERS}
+        options={{
+          headerShown: false,
+          title: '订单查询',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+      <Stack.Screen
+        component={AppsSearchPage}
+        name={ROUTES.APPS.APPS_SEARCH}
+        options={{ headerShown: false, title: '搜索' }}
       />
     </Stack.Navigator>
   );

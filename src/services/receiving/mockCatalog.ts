@@ -41,47 +41,54 @@ const defaultModuleStatus = {
 
 const baseDetail = (
   partial: Partial<ProductionColorDetail> &
-    Pick<ProductionColorDetail, 'id' | 'productionOrderNo' | 'color'>,
+    Pick<ProductionColorDetail, 'id' | 'productionOrderCode' | 'color'>,
 ): ProductionColorDetail => ({
-  bulkStyleNo: 'SDG12345',
-  po: '230101',
+  productCode: 'SDG12345',
+  customerPO: '230101',
   brand: 'SUPERDOWN',
   colorCode: 'BK-01',
   thumbnailUrl: MOCK_IMAGE_URL,
   imageUrls: mockImageUrls(),
   status: 'active',
   moduleStatus: { ...defaultModuleStatus },
-  styleCategory: '连衣裙',
-  requiredDeliveryDate: '2024/06/30',
-  designNo: 'DN-2024-088',
-  customerStyleNo: 'CUS-7788',
+  category: '连衣裙',
+  requiredProductionDate: '2024/06/30',
+  code: 'DN-2024-088',
+  customerCode: 'CUS-7788',
   orderType: 'FOB',
-  processingMethod: '包工包料',
-  merchandiser: '王小美',
-  plannedTotal: 500,
-  sizes: ['XS', 'S', 'M', 'L', 'XL'],
+  productionType: '包工包料',
+  productionFollowerName: '王小美',
+  quantity: 500,
+  sizeRange: [
+    { name: 'XS', quantity: 20 },
+    { name: 'S', quantity: 40 },
+    { name: 'M', quantity: 60 },
+    { name: 'L', quantity: 50 },
+    { name: 'XL', quantity: 30 },
+  ],
+  packageAttachment: mockImageUrls(2),
   ...partial,
 });
 
 export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   baseDetail({
     id: 'pc-empty',
-    productionOrderNo: 'DS-2026-001',
+    productionOrderCode: 'DS-2026-001',
     color: '白色',
-    bulkStyleNo: 'SDG10001',
-    po: '240001',
+    productCode: 'SDG10001',
+    customerPO: '240001',
     brand: 'APEX',
     moduleStatus: { ...defaultModuleStatus },
   }),
   baseDetail({
     id: 'pc-partial-material',
-    productionOrderNo: 'DS-2026-031',
+    productionOrderCode: 'DS-2026-031',
     color: '黄色',
-    bulkStyleNo: 'SDQ10070-F26',
+    productCode: 'SDQ10070-F26',
     brand: 'SUPERDOWN',
-    po: 'SUPERDOWN',
-    styleCategory: '连衣裙 DS',
-    requiredDeliveryDate: '2027-01-10',
+    customerPO: 'SUPERDOWN',
+    category: '连衣裙 DS',
+    requiredProductionDate: '2027-01-10',
     imageUrls: mockImageUrls(6),
     moduleStatus: {
       material: 'exception',
@@ -92,10 +99,10 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-all-material',
-    productionOrderNo: 'DS-2026-042',
+    productionOrderCode: 'DS-2026-042',
     color: '藏青',
-    bulkStyleNo: 'SDG22334',
-    po: '240088',
+    productCode: 'SDG22334',
+    customerPO: '240088',
     brand: 'MODA',
     moduleStatus: {
       material: 'all_arrived',
@@ -106,9 +113,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-material-exception-pending',
-    productionOrderNo: 'DS-2026-055',
+    productionOrderCode: 'DS-2026-055',
     color: '红色',
-    bulkStyleNo: 'SDG33445',
+    productCode: 'SDG33445',
     brand: 'LUXE',
     moduleStatus: {
       material: 'exception',
@@ -119,9 +126,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-material-exception-replied',
-    productionOrderNo: 'DS-2026-066',
+    productionOrderCode: 'DS-2026-066',
     color: '米色',
-    bulkStyleNo: 'SDG44556',
+    productCode: 'SDG44556',
     brand: 'CHIC',
     moduleStatus: {
       material: 'exception',
@@ -132,9 +139,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-cutting',
-    productionOrderNo: 'DS-2026-077',
+    productionOrderCode: 'DS-2026-077',
     color: '灰色',
-    bulkStyleNo: 'SDG55667',
+    productCode: 'SDG55667',
     brand: 'URBAN',
     moduleStatus: {
       material: 'all_arrived',
@@ -145,9 +152,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-cutting-exception',
-    productionOrderNo: 'DS-2026-088',
+    productionOrderCode: 'DS-2026-088',
     color: '卡其',
-    bulkStyleNo: 'SDG66778',
+    productCode: 'SDG66778',
     brand: 'FIELD',
     moduleStatus: {
       material: 'all_arrived',
@@ -158,9 +165,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-sewing-today',
-    productionOrderNo: 'DS-2026-099',
+    productionOrderCode: 'DS-2026-099',
     color: '粉色',
-    bulkStyleNo: 'SDG77889',
+    productCode: 'SDG77889',
     brand: 'SOFT',
     moduleStatus: {
       material: 'all_arrived',
@@ -171,9 +178,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-sewing-history',
-    productionOrderNo: 'DS-2026-110',
+    productionOrderCode: 'DS-2026-110',
     color: '蓝色',
-    bulkStyleNo: 'SDG88990',
+    productCode: 'SDG88990',
     brand: 'OCEAN',
     moduleStatus: {
       material: 'all_arrived',
@@ -184,9 +191,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-packing',
-    productionOrderNo: 'DS-2026-121',
+    productionOrderCode: 'DS-2026-121',
     color: '绿色',
-    bulkStyleNo: 'SDG99001',
+    productCode: 'SDG99001',
     brand: 'NATURE',
     moduleStatus: {
       material: 'all_arrived',
@@ -197,9 +204,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-multi-image',
-    productionOrderNo: 'DS-2026-132',
+    productionOrderCode: 'DS-2026-132',
     color: '格纹',
-    bulkStyleNo: 'SDG10112',
+    productCode: 'SDG10112',
     brand: 'PLAID',
     imageUrls: mockImageUrls(5),
     moduleStatus: {
@@ -211,9 +218,9 @@ export const MOCK_PRODUCTION_COLORS: ProductionColorDetail[] = [
   }),
   baseDetail({
     id: 'pc-completed',
-    productionOrderNo: 'DS-2025-999',
+    productionOrderCode: 'DS-2025-999',
     color: '黑色',
-    bulkStyleNo: 'SDG99999',
+    productCode: 'SDG99999',
     brand: 'DONE',
     status: 'completed',
     moduleStatus: {
@@ -232,13 +239,15 @@ export const getProductionColorByOrderAndColor = (
   orderNo: string,
   color: string,
 ): ProductionColorDetail | undefined =>
-  MOCK_PRODUCTION_COLORS.find((item) => item.productionOrderNo === orderNo && item.color === color);
+  MOCK_PRODUCTION_COLORS.find(
+    (item) => item.productionOrderCode === orderNo && item.color === color,
+  );
 
 export const toSummary = (detail: ProductionColorDetail): ProductionColorSummary => ({
   id: detail.id,
-  productionOrderNo: detail.productionOrderNo,
-  bulkStyleNo: detail.bulkStyleNo,
-  po: detail.po,
+  productionOrderCode: detail.productionOrderCode,
+  productCode: detail.productCode,
+  customerPO: detail.customerPO,
   brand: detail.brand,
   color: detail.color,
   ...(detail.colorCode ? { colorCode: detail.colorCode } : {}),

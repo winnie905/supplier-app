@@ -1,5 +1,5 @@
 import { Text } from 'design-system-native';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
 
 import { CornerCheckOption } from '@/components/CornerCheckOption';
 import { FlatButton } from '@/components/FlatButton';
@@ -10,11 +10,11 @@ interface ReceivingExceptionSheetProps {
   title?: string;
   tags: string[];
   types: readonly string[];
-  selectedType: string;
+  selectedTypes: string[];
   description: string;
   maxDescriptionLength?: number;
   onClose: () => void;
-  onTypeChange: (type: string) => void;
+  onTypesChange: (types: string[]) => void;
   onDescriptionChange: (text: string) => void;
   onSubmit: () => void;
 }
@@ -24,72 +24,92 @@ export const ReceivingExceptionSheet = ({
   title = '异常上报',
   tags,
   types,
-  selectedType,
+  selectedTypes,
   description,
   maxDescriptionLength = 50,
   onClose,
-  onTypeChange,
+  onTypesChange,
   onDescriptionChange,
   onSubmit,
-}: ReceivingExceptionSheetProps) => (
-  <DrawerModal
-    visible={visible}
-    title={title}
-    onClose={onClose}
-    height="auto"
-    footer={
-      <FlatButton onPress={onSubmit} style={styles.submit} textStyle={styles.submitText}>
-        提交
-      </FlatButton>
+}: ReceivingExceptionSheetProps) => {
+  const handleClose = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
+
+  const handleSubmit = () => {
+    Keyboard.dismiss();
+    onSubmit();
+  };
+
+  const toggleType = (type: string) => {
+    if (selectedTypes.includes(type)) {
+      onTypesChange(selectedTypes.filter((item) => item !== type));
+      return;
     }
-  >
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>异常内容</Text>
-      <View style={styles.tagWrap}>
-        {tags.map((tag) => (
-          <View key={tag} style={styles.tag}>
-            <Text style={styles.tagText}>{tag}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
+    onTypesChange([...selectedTypes, type]);
+  };
 
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>
-        异常类型<Text style={styles.required}>*</Text>
-      </Text>
-      <View style={styles.typeWrap}>
-        {types.map((type) => (
-          <CornerCheckOption
-            key={type}
-            label={type}
-            selected={type === selectedType}
-            onPress={() => onTypeChange(type)}
-            style={styles.typeItem}
-          />
-        ))}
+  return (
+    <DrawerModal
+      visible={visible}
+      title={title}
+      onClose={handleClose}
+      height="auto"
+      footer={
+        <FlatButton onPress={handleSubmit} style={styles.submit} textStyle={styles.submitText}>
+          提交
+        </FlatButton>
+      }
+    >
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>异常内容</Text>
+        <View style={styles.tagWrap}>
+          {tags.map((tag) => (
+            <View key={tag} style={styles.tag}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
       </View>
-    </View>
 
-    <View style={styles.section}>
-      <Text style={styles.optionalTitle}>问题描述（可选）</Text>
-      <View style={styles.textareaWrap}>
-        <TextInput
-          maxLength={maxDescriptionLength}
-          multiline
-          onChangeText={onDescriptionChange}
-          placeholder="请输入"
-          placeholderTextColor="#A8BBD4"
-          style={styles.textarea}
-          value={description}
-        />
-        <Text style={styles.counter}>
-          ({description.length}/{maxDescriptionLength})
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          异常类型<Text style={styles.required}>*</Text>
         </Text>
+        <View style={styles.typeWrap}>
+          {types.map((type) => (
+            <CornerCheckOption
+              key={type}
+              label={type}
+              selected={selectedTypes.includes(type)}
+              onPress={() => toggleType(type)}
+              style={styles.typeItem}
+            />
+          ))}
+        </View>
       </View>
-    </View>
-  </DrawerModal>
-);
+
+      <View style={styles.section}>
+        <Text style={styles.optionalTitle}>问题描述（可选）</Text>
+        <View style={styles.textareaWrap}>
+          <TextInput
+            maxLength={maxDescriptionLength}
+            multiline
+            onChangeText={onDescriptionChange}
+            placeholder="请输入"
+            placeholderTextColor="#A8BBD4"
+            style={styles.textarea}
+            value={description}
+          />
+          <Text style={styles.counter}>
+            ({description.length}/{maxDescriptionLength})
+          </Text>
+        </View>
+      </View>
+    </DrawerModal>
+  );
+};
 
 const styles = StyleSheet.create({
   section: {

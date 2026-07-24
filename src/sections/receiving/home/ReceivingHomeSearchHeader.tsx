@@ -1,78 +1,39 @@
 import { Pressable, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import CloseIcon from '@/assets/icons/close.svg';
-import NoticeIcon from '@/assets/icons/notice.svg';
-import ScanIcon from '@/assets/icons/scan.svg';
+import SearchNoticeIcon from '@/assets/icons/searchNotice.svg';
 import { SafeAreaHeader } from '@/components/SafeAreaHeader';
+import { SearchEntryBar } from '@/components/SearchEntryBar';
 
-export const ReceivingHomeSearchBar = ({
-  onScanPress,
-  onSearchPress,
-  onSearchPressIn,
-  value,
-}: {
-  onScanPress: () => void;
-  onSearchPress: () => void;
-  onSearchPressIn?: (() => void) | undefined;
-  value?: string;
-}) => (
-  <View style={searchStyles.capsule}>
-    <Pressable
-      accessibilityLabel="扫码"
-      accessibilityRole="button"
-      hitSlop={4}
-      onPress={onScanPress}
-      onPressIn={onScanPress}
-      style={searchStyles.scanBtn}
-    >
-      <ScanIcon color="#061B37" height={18} width={18} />
-    </Pressable>
-    <View style={searchStyles.divider} />
-    <Pressable
-      accessibilityRole="button"
-      onPress={onSearchPress}
-      {...(onSearchPressIn ? { onPressIn: onSearchPressIn } : {})}
-      style={searchStyles.inputPressable}
-    >
-      <TextInput
-        editable={false}
-        pointerEvents="none"
-        placeholder="搜索大货款号/客户PO/品牌"
-        placeholderTextColor="#A8BBD4"
-        style={[searchStyles.input, value ? searchStyles.inputFilled : null]}
-        value={value ?? ''}
-      />
-    </Pressable>
-    <Pressable
-      accessibilityRole="button"
-      onPress={onSearchPress}
-      {...(onSearchPressIn ? { onPressIn: onSearchPressIn } : {})}
-      style={searchStyles.searchBtn}
-    >
-      <Text style={searchStyles.searchBtnText}>搜索</Text>
-    </Pressable>
-  </View>
-);
+/** @deprecated 请优先使用 SearchEntryBar；保留别名以兼容收发首页 */
+export const ReceivingHomeSearchBar = SearchEntryBar;
 
 export const ReceivingHomePopover = ({ onClose }: { onClose: () => void }) => (
   <View style={popoverStyles.wrap}>
-    <View style={popoverStyles.arrow} />
-    <View style={popoverStyles.card}>
-      <NoticeIcon color="#105FC8" height={18} width={18} />
-      <Text style={popoverStyles.text}>扫描 D&J生产二维码或搜索大货款号{'\n'}开始收发管理操作</Text>
-      <Pressable
-        accessibilityLabel="关闭提示"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={onClose}
-      >
-        <CloseIcon color="#FFFFFF" height={14} width={14} />
-      </Pressable>
+    <View style={popoverStyles.content}>
+      <View style={popoverStyles.arrow} />
+      <View style={popoverStyles.card}>
+        <SearchNoticeIcon height={14} style={popoverStyles.leadingIcon} width={14} />
+        <Text style={popoverStyles.text}>
+          扫描 D&J生产二维码或搜索大货款号{'\n'}开始收发管理操作
+        </Text>
+        <Pressable
+          accessibilityLabel="关闭提示"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={onClose}
+          style={popoverStyles.closeBtn}
+        >
+          <CloseIcon color="#FFFFFF" height={14} width={14} />
+        </Pressable>
+      </View>
     </View>
   </View>
 );
+
+const SEARCH_BAR_HEIGHT = 40;
 
 export const ReceivingHomeSearchHeader = ({
   absolute,
@@ -90,90 +51,53 @@ export const ReceivingHomeSearchHeader = ({
     paddingHorizontal={0}
     style={absolute ? styles.searchOverlay : styles.searchSection}
   >
-    {searchBar}
-    {popover}
+    <View style={styles.searchBlock}>
+      {searchBar}
+      {popover ? (
+        <View pointerEvents="box-none" style={styles.popoverAnchor}>
+          {popover}
+        </View>
+      ) : null}
+    </View>
   </SafeAreaHeader>
 );
-
-const searchStyles = StyleSheet.create({
-  capsule: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 40,
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(247, 249, 252, 0.8)',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  scanBtn: {
-    paddingHorizontal: 14,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  divider: {
-    width: 1,
-    height: 22,
-    backgroundColor: '#A7AFC1',
-  },
-  inputPressable: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center',
-  },
-  input: {
-    paddingHorizontal: 10,
-    paddingVertical: 0,
-    fontSize: 15,
-    color: '#BDC8D8',
-  },
-  inputFilled: {
-    color: '#061B37',
-    fontWeight: '500',
-  },
-  searchBtn: {
-    height: 30,
-    paddingHorizontal: 8,
-    backgroundColor: '#105FC8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    margin: 5,
-  },
-  searchBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});
 
 const popoverStyles = StyleSheet.create({
   wrap: {
     marginTop: 10,
-    marginHorizontal: 16,
-    alignItems: 'flex-start',
+    // 相对搜索框：左再缩 20、右再缩 22（搜索框左右各 16）
+    marginLeft: 36,
+    marginRight: 38,
     zIndex: 1000,
   },
+  content: {
+    alignSelf: 'stretch',
+  },
   arrow: {
-    marginLeft: 18,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderBottomWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#3A4350',
+    position: 'absolute',
+    top: -4,
+    left: 16,
+    width: 14,
+    height: 14,
+    backgroundColor: '#3A4350',
+    borderRadius: 3,
+    transform: [{ rotate: '45deg' }],
   },
   card: {
-    width: '100%',
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
     backgroundColor: '#3A4350',
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 6,
+  },
+  // 与首行文字顶对齐（lineHeight 20 - icon 14）/ 2
+  leadingIcon: {
+    marginTop: 3,
+  },
+  closeBtn: {
+    marginTop: 3,
   },
   text: {
     flex: 1,
@@ -190,5 +114,16 @@ const styles = StyleSheet.create({
   searchOverlay: {
     zIndex: 2,
     pointerEvents: 'box-none',
+  },
+  searchBlock: {
+    zIndex: 2,
+  },
+  /** 贴在搜索框下方，不占文档流 */
+  popoverAnchor: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: SEARCH_BAR_HEIGHT,
+    zIndex: 1000,
   },
 });

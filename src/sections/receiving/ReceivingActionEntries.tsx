@@ -2,7 +2,7 @@ import { Image, Pressable, Text } from 'design-system-native';
 import type { ImageSourcePropType } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
-import NoticeIcon from '@/assets/icons/notice.svg';
+import WarningTriangleIcon from '@/assets/icons/warningTriangle.svg';
 import {
   cuttingRecords,
   materialConfirmation,
@@ -28,6 +28,7 @@ interface EntryMeta {
   statusTag?: { label: string; tone: 'blue' | 'gray' | 'green' };
   subtitle?: string;
   rightBadge?: { label: string; tone: 'red' | 'orange' | 'green' };
+  hasException?: boolean;
 }
 
 const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): EntryMeta => {
@@ -47,7 +48,7 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
         meta.statusTag = { label: '待确认', tone: 'gray' };
       }
       if (status.material === 'exception') {
-        meta.rightBadge = { label: '有异常', tone: 'orange' };
+        meta.hasException = true;
       }
       return meta;
     }
@@ -57,7 +58,7 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
         meta.subtitle = `已裁: ${status.cutting.cutTotal}`;
       }
       if (status.cutting.hasException) {
-        meta.rightBadge = { label: '有异常', tone: 'orange' };
+        meta.hasException = true;
       }
       return meta;
     }
@@ -81,6 +82,13 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
       return {};
   }
 };
+
+const ExceptionPill = () => (
+  <View style={styles.exceptionPill}>
+    <WarningTriangleIcon color="#FFFFFF" height={14} width={14} />
+    <Text style={styles.exceptionPillText}>有异常</Text>
+  </View>
+);
 
 interface ReceivingActionEntriesProps {
   summary?: ProductionColorSummary | null;
@@ -132,16 +140,9 @@ export const ReceivingActionEntries = ({
             </View>
           </View>
           <View style={styles.right}>
+            {meta?.hasException ? <ExceptionPill /> : null}
             {meta?.rightBadge ? (
-              <ReceivingStatusBadge
-                label={meta.rightBadge.label}
-                tone={meta.rightBadge.tone}
-                icon={
-                  meta.rightBadge.label === '有异常' ? (
-                    <NoticeIcon color="#E67E22" height={14} width={14} />
-                  ) : undefined
-                }
-              />
+              <ReceivingStatusBadge label={meta.rightBadge.label} tone={meta.rightBadge.tone} />
             ) : null}
           </View>
         </Pressable>
@@ -168,7 +169,6 @@ const styles = StyleSheet.create({
   },
   itemDisabled: {
     backgroundColor: '#E8EEF5',
-    opacity: 0.5,
   },
   itemDisabledTitle: {
     color: '#9AADBF',
@@ -202,5 +202,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginLeft: 8,
+  },
+  exceptionPill: {
+    height: 24,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#FD8D77',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  exceptionPillText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

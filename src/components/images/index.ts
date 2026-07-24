@@ -23,4 +23,9 @@ export const sewingRecords: ImageSourcePropType = require('@/assets/images/sewin
 export const cuttingRecords: ImageSourcePropType = require('@/assets/images/cutting.png');
 export const searchEmpty: ImageSourcePropType = require('@/assets/images/searchEmpty.png');
 export const receivingCardDecorImage: ImageSourcePropType = require('@/assets/images/receivingCard.png');
+export const boxImage: ImageSourcePropType = require('@/assets/images/box.png');
+export const appsBackgroundImage: ImageSourcePropType = require('@/assets/images/appsBg.png');
+export const companyImage: ImageSourcePropType = require('@/assets/images/company.png');
+export const orderSearchEntryImage: ImageSourcePropType = require('@/assets/images/orderSearchEntry.png');
+export const orderSearchBackgroundImage: ImageSourcePropType = require('@/assets/images/orderSearchBg.png');
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */

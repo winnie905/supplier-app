@@ -1,5 +1,5 @@
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -12,16 +12,14 @@ import {
   View,
 } from 'react-native';
 
-import NoticeIcon from '@/assets/icons/notice.svg';
 import { useToast } from '@/components/toast/Toast';
 import { MATERIAL_EXCEPTION_TYPES } from '@/constants/receiving';
-import { ROUTES } from '@/constants/routes';
 import { useDebouncedSubmit } from '@/hooks/receiving/useDebouncedSubmit';
 import {
-  useFactoryExceptions,
-  useMaterialConfirmation,
-  useProductionColorDetail,
-} from '@/hooks/receiving/useReceiving';
+  ExceptionReportButton,
+  useExceptionReportChrome,
+} from '@/hooks/receiving/useExceptionReportChrome';
+import { useMaterialConfirmation, useProductionColorDetail } from '@/hooks/receiving/useReceiving';
 import type { LogisticsScreenProps } from '@/navigation/types';
 import { MaterialCategorySection } from '@/sections/receiving/material/MaterialCategorySection';
 import { CircleCheck } from '@/sections/receiving/material/MaterialItemRow';
@@ -55,13 +53,25 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
   const runSubmit = useDebouncedSubmit();
   const { detail, refresh: refreshDetail } = useProductionColorDetail(productionColorId);
   const { data, refresh } = useMaterialConfirmation(productionColorId);
-  const { pendingCount } = useFactoryExceptions(productionColorId, 'material');
-
+  const {
+    cornerTag,
+    exceptionVisible,
+    exceptionTypes,
+    setExceptionTypes,
+    exceptionDesc,
+    setExceptionDesc,
+    openExceptionSheet,
+    closeExceptionSheet,
+    resetExceptionForm,
+    refreshExceptions,
+  } = useExceptionReportChrome({
+    navigation,
+    productionColorId,
+    module: 'material',
+    allowedTypes: MATERIAL_EXCEPTION_TYPES,
+  });
   const [activeTab, setActiveTab] = useState<MaterialCategory>('fabric');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [exceptionVisible, setExceptionVisible] = useState(false);
-  const [exceptionType, setExceptionType] = useState<string>(MATERIAL_EXCEPTION_TYPES[0]);
-  const [exceptionDesc, setExceptionDesc] = useState('');
   const [progressLeadSize, setProgressLeadSize] = useState({ width: 0, height: 0 });
   const [tabPinned, setTabPinned] = useState(false);
 
@@ -78,28 +88,7 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
     tabBarYRef.current = progressContainerYRef.current + tabBarLocalYRef.current;
   };
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            navigation.navigate(ROUTES.LOGISTICS.EXCEPTION_REPLY_LIST, {
-              productionColorId,
-              module: 'material',
-            })
-          }
-          style={styles.headerRight}
-        >
-          <NoticeIcon color="#105FC8" height={16} width={16} />
-          <Text style={styles.headerRightText}>异常回复</Text>
-          {pendingCount > 0 ? <View style={styles.badgeDot} /> : null}
-        </Pressable>
-      ),
-    });
-  }, [navigation, pendingCount, productionColorId]);
-
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
 
   const tabItems = useMemo(
     () =>
@@ -175,6 +164,7 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
       setSelectedIds([]);
       await refresh();
       await refreshDetail();
+      await refreshExceptions();
       showToast('确认到料成功', { duration: 3000 });
     });
   };
@@ -185,17 +175,22 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
         showToast('请先选择物料', { duration: 3000 });
         return;
       }
+      if (exceptionTypes.length === 0) {
+        showToast('请选择异常类型', { duration: 3000 });
+        return;
+      }
       await receivingService.submitMaterialException({
         productionColorId,
         itemIds: selectedIds,
-        type: exceptionType,
+        type: exceptionTypes.join('、'),
         description: exceptionDesc,
       });
-      setExceptionVisible(false);
-      setExceptionDesc('');
+      closeExceptionSheet();
+      resetExceptionForm();
       setSelectedIds([]);
       await refresh();
       await refreshDetail();
+      await refreshExceptions();
       showToast('异常已提交', { duration: 3000 });
     });
   };
@@ -265,7 +260,7 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        <ReceivingOrderInfoCard detail={detail} />
+        <ReceivingOrderInfoCard cornerTag={cornerTag} detail={detail} />
 
         <View
           style={styles.progressContainer}
@@ -356,15 +351,7 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
             <Text style={styles.selectAllText}>全选</Text>
           </Pressable>
         }
-        center={
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setExceptionVisible(true)}
-            style={styles.exceptionBtn}
-          >
-            <Text style={styles.exceptionBtnText}>异常上报</Text>
-          </Pressable>
-        }
+        center={<ExceptionReportButton onPress={openExceptionSheet} style={styles.exceptionBtn} />}
         rightLabel={`确认到料 (${selectedIds.length})`}
         onRightPress={handleConfirmArrival}
       />
@@ -373,11 +360,11 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
         visible={exceptionVisible}
         tags={selectedTags}
         types={MATERIAL_EXCEPTION_TYPES}
-        selectedType={exceptionType}
+        selectedTypes={exceptionTypes}
         description={exceptionDesc}
-        onClose={() => setExceptionVisible(false)}
+        onClose={closeExceptionSheet}
         onDescriptionChange={setExceptionDesc}
-        onTypeChange={setExceptionType}
+        onTypesChange={setExceptionTypes}
         onSubmit={handleSubmitException}
       />
     </View>
@@ -472,38 +459,6 @@ const styles = StyleSheet.create({
   },
   exceptionBtn: {
     minWidth: 96,
-    height: 45,
     paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#105FC8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  exceptionBtnText: {
-    color: '#105FC8',
-    fontSize: 18,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingRight: 16,
-    position: 'relative',
-  },
-  headerRightText: {
-    color: '#105FC8',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: -2,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E5484D',
   },
 });

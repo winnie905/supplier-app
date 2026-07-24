@@ -19,6 +19,8 @@ export const ROUTES = {
   },
   APPS: {
     APPS_HOME: 'AppsHome',
+    PRODUCTION_ORDERS: 'ProductionOrders',
+    APPS_SEARCH: 'AppsSearch',
   },
   REPORTS: {
     REPORTS_HOME: 'ReportsHome',

@@ -1,7 +1,9 @@
+import { HStack, Image } from 'design-system-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import CheckIcon from '@/assets/icons/check.svg';
 import { FlatButton } from '@/components/FlatButton';
+import { boxImage } from '@/components/images';
 import { ReceivingBottomSheet } from '@/sections/receiving/ReceivingBottomSheet';
 import type { CartonSpec } from '@/types/receiving';
 
@@ -40,6 +42,7 @@ export const PackingCartonSheet = ({
     <View style={styles.cartonList}>
       {cartonSpecs.map((spec) => {
         const selected = spec.id === pendingCartonId;
+        const isBrand = spec.type === 'brand';
         return (
           <Pressable
             key={spec.id}
@@ -47,26 +50,17 @@ export const PackingCartonSheet = ({
             onPress={() => onSelect(spec.id)}
             style={[styles.cartonOption, selected && styles.cartonOptionSelected]}
           >
-            {spec.tag ? (
-              <View
-                style={[
-                  styles.cartonTag,
-                  spec.tag === '最常用' ? styles.cartonTagHot : styles.cartonTagCommon,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.cartonTagText,
-                    spec.tag === '最常用' ? styles.cartonTagTextHot : styles.cartonTagTextCommon,
-                  ]}
-                >
-                  {spec.tag}
-                </Text>
-              </View>
-            ) : null}
-            <Text style={styles.cartonName}>
-              {spec.name}({formatCartonDim(spec)})
-            </Text>
+            <View
+              style={[styles.cartonTag, isBrand ? styles.cartonTagBrand : styles.cartonTagGeneral]}
+            >
+              <Text style={styles.cartonTagText}>{isBrand ? '品牌箱子' : '通用箱子'}</Text>
+            </View>
+            <HStack alignItems="center" gap={8} justifyContent="center">
+              <Image source={boxImage} height={50} width={50} />
+              <Text style={[styles.cartonName, selected && styles.cartonNameSelected]}>
+                {spec.name}({formatCartonDim(spec)})
+              </Text>
+            </HStack>
             {selected ? (
               <View style={styles.cartonCorner}>
                 <View style={styles.cartonCornerTriangle} />
@@ -105,30 +99,28 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    borderBottomRightRadius: 8,
-    paddingHorizontal: 8,
+    borderTopLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    paddingHorizontal: 4,
     paddingVertical: 2,
   },
-  cartonTagHot: {
-    backgroundColor: '#E8F8EF',
+  cartonTagBrand: {
+    backgroundColor: '#5DD897',
   },
-  cartonTagCommon: {
-    backgroundColor: '#FFF3E6',
+  cartonTagGeneral: {
+    backgroundColor: '#FFB133',
   },
   cartonTagText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  cartonTagTextHot: {
-    color: '#1A9F5C',
-  },
-  cartonTagTextCommon: {
-    color: '#F79009',
+    fontSize: 12,
+    color: '#FFFFFF',
   },
   cartonName: {
-    fontSize: 15,
+    fontSize: 18,
+    color: '#0C2A52',
+  },
+  cartonNameSelected: {
+    color: '#105FC8',
     fontWeight: '600',
-    color: '#021626',
   },
   cartonCorner: {
     position: 'absolute',

@@ -1,10 +1,12 @@
 import { Pressable, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
+  Keyboard,
   ScrollView,
   type StyleProp,
   StyleSheet,
+  type TextStyle,
   useWindowDimensions,
   View,
   type ViewStyle,
@@ -14,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '@/assets/icons/back.svg';
 import CloseIcon from '@/assets/icons/close.svg';
 import { AppModal } from '@/components/AppModal';
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 
 export type DrawerModalHeight = 'auto' | 'max' | number;
 
@@ -31,12 +34,15 @@ export interface DrawerModalProps {
   sheetStyle?: StyleProp<ViewStyle>;
   bodyStyle?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  titleStyle?: StyleProp<TextStyle>;
+  headerStyle?: StyleProp<ViewStyle>;
   /** 是否使用内部 ScrollView，列表类内容可设为 false */
   scrollable?: boolean;
 }
 
 /**
  * 底部抽屉式弹窗通用壳：标题 + 关闭/返回 + 可滚动内容区 + 可选底部操作区。
+ * 键盘弹起时整体上移，避免遮挡输入框；关闭时自动收起键盘。
  */
 export const DrawerModal = ({
   visible,
@@ -51,60 +57,92 @@ export const DrawerModal = ({
   sheetStyle,
   bodyStyle,
   contentContainerStyle,
+  titleStyle,
+  headerStyle,
   scrollable = true,
 }: DrawerModalProps) => {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const maxSheetHeight = window.height - insets.top;
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight(visible);
+
+  const handleClose = useCallback(() => {
+    Keyboard.dismiss();
+    onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!visible) {
+      Keyboard.dismiss();
+    }
+  }, [visible]);
+
+  // 键盘弹起后滚到内容底部，确保靠下的输入框进入可视区
+  useEffect(() => {
+    if (keyboardHeight <= 0 || !scrollable) return;
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [keyboardHeight, scrollable]);
+
+  /** 键盘上方可用高度（整页上移后留给抽屉的空间） */
+  const availableHeight = Math.max(
+    window.height - insets.top - keyboardHeight,
+    window.height * 0.35,
+  );
 
   const sheetHeightStyle = useMemo<StyleProp<ViewStyle>>(() => {
     if (height === 'max') {
       return {
-        flex: 1,
-        marginTop: insets.top,
+        height: availableHeight,
       };
     }
     if (height === 'auto') {
       return {
-        maxHeight: maxSheetHeight,
+        maxHeight: availableHeight,
       };
     }
     return {
-      height: Math.min(height, maxSheetHeight),
+      height: Math.min(height, availableHeight),
     };
-  }, [height, insets.top, maxSheetHeight]);
+  }, [availableHeight, height]);
 
   return (
     <AppModal
       visible={visible}
-      onClose={onClose}
+      onClose={handleClose}
       animationType="slide"
       closeOnBackdropPress={closeOnBackdropPress}
       backdropStyle={styles.modalRoot}
       cardStyle={[
         styles.sheet,
         sheetHeightStyle,
-        { paddingBottom: Math.max(insets.bottom, 16) },
+        {
+          // 安全区底边距；键盘弹起时用 marginBottom 把抽屉整体抬到键盘上方
+          paddingBottom: Math.max(insets.bottom, 16),
+          marginBottom: keyboardHeight,
+        },
         sheetStyle,
       ]}
     >
-      <View style={styles.sheetHeader}>
+      <View style={[styles.sheetHeader, headerStyle]}>
         {showBackButton ? (
           <Pressable
             accessibilityRole="button"
             hitSlop={8}
-            onPress={onClose}
+            onPress={handleClose}
             style={styles.backButton}
           >
             <BackIcon width={20} height={20} color="#111111" />
           </Pressable>
         ) : null}
-        <Text style={styles.sheetTitle}>{title}</Text>
+        <Text style={[styles.sheetTitle, titleStyle]}>{title}</Text>
         {showCloseButton ? (
           <Pressable
             accessibilityRole="button"
             hitSlop={8}
-            onPress={onClose}
+            onPress={handleClose}
             style={styles.closeButton}
           >
             <CloseIcon width={16} height={16} color="#061B37" />
@@ -114,6 +152,9 @@ export const DrawerModal = ({
 
       {scrollable ? (
         <ScrollView
+          ref={scrollRef}
+          automaticallyAdjustKeyboardInsets={false}
+          keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           style={[styles.body, height === 'max' ? styles.bodyFlex : null, bodyStyle]}
@@ -181,6 +222,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flexGrow: 0,
+    flexShrink: 1,
   },
   bodyFlex: {
     flex: 1,
@@ -188,6 +230,7 @@ const styles = StyleSheet.create({
   bodyContent: {
     paddingBottom: 8,
     gap: 16,
+    flexGrow: 1,
   },
   footer: {
     paddingTop: 12,

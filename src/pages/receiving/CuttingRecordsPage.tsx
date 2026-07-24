@@ -1,57 +1,42 @@
 import { useHeaderHeight } from '@react-navigation/elements';
 import { VStack } from 'design-system-native';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import {
-  findNodeHandle,
-  type FocusEvent,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import AddIcon from '@/assets/icons/circlePlusOutline.svg';
 import DeleteIcon from '@/assets/icons/delete.svg';
 import EditIcon from '@/assets/icons/edit.svg';
-import MarkEmailReadIcon from '@/assets/icons/markEmailRead.svg';
 import { DashedButton } from '@/components/DashedButton';
 import { ExpandableRecordCard } from '@/components/ExpandableRecordCard';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { RecordDetailPanel } from '@/components/RecordDetailPanel';
 import { useToast } from '@/components/toast/Toast';
 import { CUTTING_EXCEPTION_TYPES } from '@/constants/receiving';
-import { ROUTES } from '@/constants/routes';
+import { useDebouncedPersist } from '@/hooks/receiving/useDebouncedPersist';
 import { useDebouncedSubmit } from '@/hooks/receiving/useDebouncedSubmit';
 import {
-  useCuttingRecords,
-  useFactoryExceptions,
-  useProductionColorDetail,
-} from '@/hooks/receiving/useReceiving';
+  ExceptionReportButton,
+  useExceptionReportChrome,
+} from '@/hooks/receiving/useExceptionReportChrome';
+import { useExpandableRecordList } from '@/hooks/receiving/useExpandableRecordList';
+import { useKeyboardAwareScroll } from '@/hooks/receiving/useKeyboardAwareScroll';
+import { useCuttingRecords, useProductionColorDetail } from '@/hooks/receiving/useReceiving';
 import type { LogisticsScreenProps } from '@/navigation/types';
 import { ReceivingBottomActionBar } from '@/sections/receiving/ReceivingBottomActionBar';
 import { ReceivingExceptionSheet } from '@/sections/receiving/ReceivingExceptionSheet';
 import { ReceivingOrderInfoCard } from '@/sections/receiving/ReceivingOrderInfoCard';
 import { ReceivingQuantityGrid } from '@/sections/receiving/ReceivingQuantityGrid';
+import { ReceivingRecordsScrollShell } from '@/sections/receiving/ReceivingRecordsScrollShell';
 import {
   emptySizeQuantities,
   receivingService,
   sumQuantities,
 } from '@/services/receiving/receivingService';
 import type { CuttingBedRecord } from '@/types/receiving';
+import { sizeNamesFromRange } from '@/types/receiving';
 
 type CuttingRecordsPageProps = LogisticsScreenProps<'CuttingRecords'>;
-
-type ScrollViewWithKeyboard = ScrollView & {
-  scrollResponderScrollNativeHandleToKeyboard?: (
-    nodeHandle: number,
-    additionalOffset: number,
-    preventNegativeScrollOffset: boolean,
-  ) => void;
-};
 
 const sortBedsNewestFirst = (beds: CuttingBedRecord[]) =>
   [...beds].sort((a, b) => b.bedNo - a.bedNo);
@@ -63,28 +48,62 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
   const runSubmit = useDebouncedSubmit();
   const { detail } = useProductionColorDetail(productionColorId);
   const { data, refresh } = useCuttingRecords(productionColorId);
-  const { items: exceptions, pendingCount } = useFactoryExceptions(productionColorId, 'cutting');
+  const {
+    cornerTag,
+    exceptionVisible,
+    exceptionTypes,
+    setExceptionTypes,
+    exceptionDesc,
+    setExceptionDesc,
+    openExceptionSheet,
+    closeExceptionSheet,
+    resetExceptionForm,
+    refreshExceptions,
+  } = useExceptionReportChrome({
+    navigation,
+    productionColorId,
+    module: 'cutting',
+    allowedTypes: CUTTING_EXCEPTION_TYPES,
+  });
+  const { scrollRef, onInputFocus, onScroll, contentBottomInset, rootKeyboardInset } =
+    useKeyboardAwareScroll();
+  const {
+    expandedIds,
+    setExpandedIds,
+    editingId,
+    setEditingId,
+    toggleExpand,
+    ensureExpanded,
+    initExpandFirst,
+    collapseToFirst,
+  } = useExpandableRecordList();
 
-  const scrollRef = useRef<ScrollViewWithKeyboard>(null);
-  const didInitExpandRef = useRef(false);
   const creatingFirstBedRef = useRef(false);
 
   const [beds, setBeds] = useState<CuttingBedRecord[]>([]);
-  const [expandedIds, setExpandedIds] = useState<string[]>([]);
-  const [editingId, setEditingId] = useState<string | undefined>();
-  const [exceptionVisible, setExceptionVisible] = useState(false);
-  const [exceptionType, setExceptionType] = useState<string>(CUTTING_EXCEPTION_TYPES[0]);
-  const [exceptionDesc, setExceptionDesc] = useState('');
 
-  const sizes = useMemo(() => data?.sizes ?? detail?.sizes ?? [], [data?.sizes, detail?.sizes]);
+  const sizes = useMemo(
+    () => data?.sizes ?? (detail ? sizeNamesFromRange(detail.sizeRange) : []),
+    [data?.sizes, detail],
+  );
 
-  const persistBeds = useCallback(
+  const { schedule: schedulePersist, flush: flushPersist } = useDebouncedPersist(
     async (next: CuttingBedRecord[], editing?: string) => {
-      setBeds(next);
-      setEditingId(editing);
       await receivingService.saveCuttingDraft(productionColorId, next, editing);
     },
-    [productionColorId],
+  );
+
+  const persistBeds = useCallback(
+    async (next: CuttingBedRecord[], editing?: string, immediate = false) => {
+      setBeds(next);
+      setEditingId(editing);
+      if (immediate) {
+        await receivingService.saveCuttingDraft(productionColorId, next, editing);
+        return;
+      }
+      schedulePersist(next, editing);
+    },
+    [productionColorId, schedulePersist, setEditingId],
   );
 
   useEffect(() => {
@@ -104,64 +123,22 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
           submitted: false,
         };
         nextBeds = [bed];
-        await persistBeds(nextBeds, bed.id);
+        await persistBeds(nextBeds, bed.id, true);
         creatingFirstBedRef.current = false;
       }
 
       setBeds(nextBeds);
 
       // 进入页面：仅展开最前（最新）床次，其余收起
-      if (!didInitExpandRef.current && nextBeds.length > 0) {
-        didInitExpandRef.current = true;
-        setExpandedIds([nextBeds[0]!.id]);
+      if (nextBeds.length > 0) {
+        initExpandFirst(nextBeds[0]!.id);
       }
 
       if (data.editingBedId) setEditingId(data.editingBedId);
     };
 
     void syncBeds();
-  }, [data, persistBeds, sizes]);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            navigation.navigate(ROUTES.LOGISTICS.EXCEPTION_REPLY_LIST, {
-              productionColorId,
-              module: 'cutting',
-            })
-          }
-          style={styles.headerRight}
-        >
-          <MarkEmailReadIcon color="#105FC8" height={16} width={16} />
-          <Text style={styles.headerRightText}>异常回复</Text>
-          {pendingCount > 0 ? <View style={styles.badgeDot} /> : null}
-        </Pressable>
-      ),
-    });
-  }, [navigation, pendingCount, productionColorId]);
-
-  const cornerTag = useMemo(() => {
-    const pending = exceptions.filter((item) => item.status === 'pending');
-    if (pending.length === 0 && !detail?.moduleStatus.cutting.hasException) return undefined;
-    const labels = pending.map((item) => item.type).filter(Boolean);
-    if (labels.length > 0) return labels.join('、');
-    return '辅料库存不足、裁数不足';
-  }, [detail?.moduleStatus.cutting.hasException, exceptions]);
-
-  const handleInputFocus = useCallback((event: FocusEvent) => {
-    const target = event.target as unknown;
-    const nodeHandle =
-      typeof target === 'number'
-        ? target
-        : findNodeHandle(target as Parameters<typeof findNodeHandle>[0]);
-    if (!nodeHandle) return;
-    setTimeout(() => {
-      scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard?.(nodeHandle, 140, true);
-    }, 150);
-  }, []);
+  }, [data, initExpandFirst, persistBeds, setEditingId, sizes]);
 
   const addBed = async () => {
     const nextNo = beds.reduce((max, bed) => Math.max(max, bed.bedNo), 0) + 1;
@@ -175,12 +152,8 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
     // 新床次置顶；先写入展开态，避免先收起再展开的闪烁
     const next = [bed, ...beds];
     setExpandedIds((prev) => (prev.includes(bed.id) ? prev : [bed.id, ...prev]));
-    await persistBeds(next, bed.id);
+    await persistBeds(next, bed.id, true);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const updateBed = (id: string, patch: Partial<CuttingBedRecord>) => {
@@ -195,7 +168,7 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
     const ascending = [...filtered].sort((a, b) => a.bedNo - b.bedNo);
     const renumbered = ascending.map((bed, index) => ({ ...bed, bedNo: index + 1 }));
     const next = sortBedsNewestFirst(renumbered);
-    await persistBeds(next, editingId === id ? undefined : editingId);
+    await persistBeds(next, editingId === id ? undefined : editingId, true);
     setExpandedIds((prev) => {
       const remaining = prev.filter((x) => x !== id);
       if (remaining.length > 0) return remaining;
@@ -205,18 +178,18 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
 
   const handleSubmit = () => {
     void runSubmit(async () => {
+      await flushPersist();
       const targets = beds.filter((bed) => !bed.submitted || bed.id === editingId);
       if (targets.length === 0) {
         showToast('没有可提交的床次', { duration: 3000 });
         return;
       }
       try {
-        for (const bed of targets) {
-          await receivingService.submitCuttingBed(productionColorId, bed.id);
-        }
+        const targetIds = targets.map((bed) => bed.id);
+        await receivingService.submitCuttingRecords(productionColorId, beds, targetIds);
         setEditingId(undefined);
         // 提交后仍保持最前床次展开
-        setExpandedIds(beds[0] ? [beds[0].id] : []);
+        collapseToFirst(beds[0]?.id);
         await refresh();
         showToast('提交成功', { duration: 3000 });
       } catch (error) {
@@ -229,13 +202,18 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
 
   const handleExceptionSubmit = () => {
     void runSubmit(async () => {
+      if (exceptionTypes.length === 0) {
+        showToast('请选择异常类型', { duration: 3000 });
+        return;
+      }
       await receivingService.submitCuttingException({
         productionColorId,
-        type: exceptionType,
+        type: exceptionTypes.join('、'),
         description: exceptionDesc,
       });
-      setExceptionVisible(false);
-      setExceptionDesc('');
+      closeExceptionSheet();
+      resetExceptionForm();
+      await refreshExceptions();
       showToast('异常已提交', { duration: 3000 });
     });
   };
@@ -257,155 +235,141 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
   if (!detail || !data) return <View style={styles.root} />;
 
   return (
-    <View style={styles.root}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={headerHeight}
-        style={styles.flex}
-      >
-        <ScrollView
-          ref={scrollRef}
-          automaticallyAdjustKeyboardInsets
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          style={[styles.scrollView, { marginTop: headerHeight }]}
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-        >
-          <ReceivingOrderInfoCard cornerTag={cornerTag} detail={detail} />
-
-          <DashedButton
-            icon={<AddIcon color="#105FC8" height={16} width={16} />}
-            label="添加床次"
-            onPress={() => void addBed()}
-            style={styles.dashedBtn}
-          />
-
-          {beds.map((bed) => {
-            const expanded = expandedIds.includes(bed.id);
-            const subtotal = sumQuantities(bed.sizeQuantities);
-            const isEditing = !bed.submitted || editingId === bed.id;
-            const showEditBtn = expanded && bed.submitted && editingId !== bed.id;
-            const items = sizes.map((size) => ({
-              key: size,
-              label: size,
-              value: bed.sizeQuantities.find((item) => item.size === size)?.quantity ?? 0,
-            }));
-
-            let headerRight: ReactNode | undefined;
-            if (showEditBtn) {
-              headerRight = (
-                <Pressable
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={() => {
-                    setEditingId(bed.id);
-                    setExpandedIds((prev) => (prev.includes(bed.id) ? prev : [...prev, bed.id]));
-                  }}
-                  style={styles.editBtn}
-                >
-                  <EditIcon color="#6C829E" height={16} width={16} />
-                  <Text style={styles.editText}>编辑</Text>
-                </Pressable>
-              );
-            } else if (!bed.submitted && beds.length > 1) {
-              headerRight = (
-                <Pressable
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={() => void deleteBed(bed.id)}
-                  style={styles.deleteBtn}
-                >
-                  <DeleteIcon height={16} width={16} />
-                </Pressable>
-              );
+    <ReceivingRecordsScrollShell
+      headerHeight={headerHeight}
+      scrollRef={scrollRef}
+      onScroll={onScroll}
+      contentBottomInset={contentBottomInset}
+      rootKeyboardInset={rootKeyboardInset}
+      footer={
+        <>
+          <ReceivingBottomActionBar
+            left={
+              <ExceptionReportButton onPress={openExceptionSheet} style={styles.exceptionBtn} />
             }
+            rightLabel="提交"
+            onRightPress={handleSubmit}
+          />
+          <ReceivingExceptionSheet
+            visible={exceptionVisible}
+            tags={['裁床异常']}
+            types={CUTTING_EXCEPTION_TYPES}
+            selectedTypes={exceptionTypes}
+            description={exceptionDesc}
+            onClose={closeExceptionSheet}
+            onDescriptionChange={setExceptionDesc}
+            onTypesChange={setExceptionTypes}
+            onSubmit={handleExceptionSubmit}
+          />
+        </>
+      }
+    >
+      <ReceivingOrderInfoCard cornerTag={cornerTag} detail={detail} />
 
-            return (
-              <ExpandableRecordCard
-                key={bed.id}
-                title={`第 ${bed.bedNo} 床次`}
-                subtitle={<Text style={styles.bedSubtotal}>小计：{subtotal}件</Text>}
-                expanded={expanded}
-                onToggleExpand={() => toggleExpand(bed.id)}
-                {...(headerRight ? { headerRight } : {})}
-              >
-                {isEditing ? (
-                  <>
-                    <VStack gap={4}>
-                      <Text style={styles.fieldLabel}>扎数</Text>
-                      <QuantityStepper
-                        editable
-                        onChange={(bundleCount) => updateBed(bed.id, { bundleCount })}
-                        onInputFocus={handleInputFocus}
-                        showStepLarge={false}
-                        value={bed.bundleCount}
-                      />
-                    </VStack>
-                    <ReceivingQuantityGrid
-                      editable
-                      onChange={(sizeQuantities) => updateBed(bed.id, { sizeQuantities })}
-                      onInputFocus={handleInputFocus}
-                      sizes={sizes}
-                      values={bed.sizeQuantities}
-                    />
-                  </>
-                ) : (
-                  <RecordDetailPanel
-                    primaryLabel="扎数"
-                    primaryValue={bed.bundleCount}
-                    items={items.map(({ key, label, value }) => ({ key, label, value }))}
-                  />
-                )}
-              </ExpandableRecordCard>
-            );
-          })}
+      <DashedButton
+        icon={<AddIcon color="#105FC8" height={16} width={16} />}
+        label="添加床次"
+        onPress={() => void addBed()}
+        style={styles.dashedBtn}
+      />
 
-          <View style={styles.summary}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>总计:</Text>
-              <Text style={styles.summaryValue}>{totals.total}件</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>生产计划总计:</Text>
-              <Text style={styles.summaryValue}>{data.plannedTotal}件</Text>
-            </View>
-            <View style={styles.cutSubtotalBox}>
-              <Text style={styles.cutSubtotalText}>裁剪小计</Text>
-              <Text style={styles.cutSubtotalText}>
-                {sizes.map((size) => `${size}: ${totals.bySize[size] ?? 0}`).join('、')}
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      {beds.map((bed) => {
+        const expanded = expandedIds.includes(bed.id);
+        const subtotal = sumQuantities(bed.sizeQuantities);
+        const isEditing = !bed.submitted || editingId === bed.id;
+        const showEditBtn = expanded && bed.submitted && editingId !== bed.id;
+        const items = sizes.map((size) => ({
+          key: size,
+          label: size,
+          value: bed.sizeQuantities.find((item) => item.size === size)?.quantity ?? 0,
+        }));
 
-      <ReceivingBottomActionBar
-        left={
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setExceptionVisible(true)}
-            style={styles.exceptionBtn}
-          >
-            <Text style={styles.exceptionBtnText}>异常上报</Text>
-          </Pressable>
+        let headerRight: ReactNode | undefined;
+        if (showEditBtn) {
+          headerRight = (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => {
+                setEditingId(bed.id);
+                ensureExpanded(bed.id);
+              }}
+              style={styles.editBtn}
+            >
+              <EditIcon color="#6C829E" height={16} width={16} />
+              <Text style={styles.editText}>编辑</Text>
+            </Pressable>
+          );
+        } else if (!bed.submitted && beds.length > 1) {
+          headerRight = (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => void deleteBed(bed.id)}
+              style={styles.deleteBtn}
+            >
+              <DeleteIcon height={16} width={16} />
+            </Pressable>
+          );
         }
-        rightLabel="提交"
-        onRightPress={handleSubmit}
-      />
 
-      <ReceivingExceptionSheet
-        visible={exceptionVisible}
-        tags={['裁床异常']}
-        types={CUTTING_EXCEPTION_TYPES}
-        selectedType={exceptionType}
-        description={exceptionDesc}
-        onClose={() => setExceptionVisible(false)}
-        onDescriptionChange={setExceptionDesc}
-        onTypeChange={setExceptionType}
-        onSubmit={handleExceptionSubmit}
-      />
-    </View>
+        return (
+          <ExpandableRecordCard
+            key={bed.id}
+            title={`第 ${bed.bedNo} 床次`}
+            subtitle={<Text style={styles.bedSubtotal}>小计：{subtotal}件</Text>}
+            expanded={expanded}
+            onToggleExpand={() => toggleExpand(bed.id)}
+            {...(headerRight ? { headerRight } : {})}
+          >
+            {isEditing ? (
+              <>
+                <VStack gap={4}>
+                  <Text style={styles.fieldLabel}>扎数</Text>
+                  <QuantityStepper
+                    editable
+                    onChange={(bundleCount) => updateBed(bed.id, { bundleCount })}
+                    onInputFocus={onInputFocus}
+                    showStepLarge={false}
+                    value={bed.bundleCount}
+                  />
+                </VStack>
+                <ReceivingQuantityGrid
+                  editable
+                  onChange={(sizeQuantities) => updateBed(bed.id, { sizeQuantities })}
+                  onInputFocus={onInputFocus}
+                  sizes={sizes}
+                  values={bed.sizeQuantities}
+                />
+              </>
+            ) : (
+              <RecordDetailPanel
+                primaryLabel="扎数"
+                primaryValue={bed.bundleCount}
+                items={items.map(({ key, label, value }) => ({ key, label, value }))}
+              />
+            )}
+          </ExpandableRecordCard>
+        );
+      })}
+
+      <View style={styles.summary}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>总计:</Text>
+          <Text style={styles.summaryValue}>{totals.total}件</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>生产计划总计:</Text>
+          <Text style={styles.summaryValue}>{data.quantity}件</Text>
+        </View>
+        <View style={styles.cutSubtotalBox}>
+          <Text style={styles.cutSubtotalText}>裁剪小计</Text>
+          <Text style={styles.cutSubtotalText}>
+            {sizes.map((size) => `${size}: ${totals.bySize[size] ?? 0}`).join('、')}
+          </Text>
+        </View>
+      </View>
+    </ReceivingRecordsScrollShell>
   );
 };
 
@@ -414,38 +378,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
-  flex: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scroll: {
-    paddingBottom: 24,
-    gap: 10,
-  },
   dashedBtn: {
     marginHorizontal: 10,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingRight: 16,
-    position: 'relative',
-  },
-  headerRightText: {
-    color: '#105FC8',
-    fontSize: 15,
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: -2,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E5484D',
   },
   bedSubtotal: {
     fontSize: 14,
@@ -507,17 +441,6 @@ const styles = StyleSheet.create({
   },
   exceptionBtn: {
     minWidth: 110,
-    height: 45,
     paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#105FC8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  exceptionBtnText: {
-    color: '#105FC8',
-    fontSize: 18,
   },
 });

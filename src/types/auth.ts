@@ -39,7 +39,7 @@ export interface AuthState {
   logoutReason: LogoutReason | null;
   isHandlingSessionExpired: boolean;
   getProfile: (session?: StoredSession) => Promise<AuthUser | null>;
-  signIn: (account: string) => Promise<void>;
+  signIn: (session: StoredSession) => Promise<void>;
   signOut: (options?: SignOutOptions) => Promise<void>;
   restoreSession: () => Promise<void>;
   getAccessToken: (session?: StoredSession) => Promise<StoredSession>;

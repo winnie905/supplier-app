@@ -60,7 +60,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topZone: {
-    overflow: 'hidden',
+    // 允许搜索提示 popover 浮在空态图上方（不裁切）
+    overflow: 'visible',
+    zIndex: 2,
   },
   placeholderArea: {
     flex: 1,
@@ -78,11 +80,7 @@ const styles = StyleSheet.create({
     backgroundColor: RECEIVING_ACTION_PANEL_BG,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingTop: 8,
-    shadowColor: '#0A1F44',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 8,
+    paddingTop: 4,
+    opacity: 0.9,
   },
 });

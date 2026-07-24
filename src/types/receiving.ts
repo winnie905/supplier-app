@@ -1,3 +1,5 @@
+import type { SizeRange } from '@/types/productionOrder';
+
 export type ProductionColorStatus = 'active' | 'completed';
 
 export type MaterialModuleStatus = 'pending' | 'partial' | 'all_arrived' | 'exception';
@@ -24,11 +26,16 @@ export interface ModuleStatusSummary {
   packing: { boxCount: number; pieceCount: number };
 }
 
+/**
+ * 收发管理「生产色」摘要。
+ * 字段命名对齐 erp-web ProductionOrderVO（一条 VO = 一个生产色）。
+ */
 export interface ProductionColorSummary {
+  /** 对应 ProductionOrderVO.id（路由/存储仍用 string；mock 暂用 legacy color id） */
   id: string;
-  productionOrderNo: string;
-  bulkStyleNo: string;
-  po: string;
+  productionOrderCode: string;
+  productCode: string;
+  customerPO: string;
   brand: string;
   color: string;
   colorCode?: string;
@@ -39,15 +46,22 @@ export interface ProductionColorSummary {
 }
 
 export interface ProductionColorDetail extends ProductionColorSummary {
-  styleCategory: string;
-  requiredDeliveryDate: string;
-  designNo: string;
-  customerStyleNo: string;
+  /** templateDesign.category */
+  category: string;
+  requiredProductionDate: string;
+  /** customerPurchaseOrder.code（设计款号） */
+  code: string;
+  /** templateDesign.customerCode（客户款号） */
+  customerCode: string;
   orderType: string;
-  processingMethod: string;
-  merchandiser: string;
-  plannedTotal: number;
-  sizes: string[];
+  /** ProductionOrderVO.productionType */
+  productionType: string;
+  productionFollowerName: string;
+  /** customerPurchaseOrder.quantity */
+  quantity: number;
+  sizeRange: SizeRange[];
+  /** customerPurchaseOrder.packageAttachment（包装要求附图） */
+  packageAttachment?: string[];
 }
 
 export interface MaterialItem {
@@ -83,6 +97,7 @@ export interface FactoryException {
   replyContent?: string;
   repliedAt?: string;
   relatedItemIds?: string[];
+  images?: string[];
 }
 
 export interface CuttingBedRecord {
@@ -98,7 +113,7 @@ export interface CuttingRecordsData {
   productionColorId: string;
   beds: CuttingBedRecord[];
   editingBedId?: string;
-  plannedTotal: number;
+  quantity: number;
   sizes: string[];
 }
 
@@ -125,7 +140,6 @@ export interface CartonSpec {
   width: number;
   height: number;
   type: CartonSpecType;
-  /** Optional tag shown in carton picker (e.g. 最常用 / 常用). */
   tag?: string;
 }
 
@@ -133,7 +147,6 @@ export interface PackingBoxRecord {
   id: string;
   boxNo: number;
   cartonSpecId?: string;
-  /** Box weight in KG. */
   weightKg: number;
   sizeQuantities: SizeQuantity[];
   submitted: boolean;
@@ -147,6 +160,14 @@ export interface PackingRecordsData {
   sizes: string[];
 }
 
+export interface MaterialDraft {
+  selectedIds: string[];
+}
+
+export interface ReceivingDrafts {
+  material: Record<string, MaterialDraft>;
+}
+
 export interface ReceivingPersistedState {
   selectedProductionColorId: string | null;
   materialItems: Record<string, MaterialItem[]>;
@@ -158,11 +179,5 @@ export interface ReceivingPersistedState {
   exceptions: FactoryException[];
 }
 
-export interface MaterialDraft {
-  selectedIds: string[];
-  activeTab: MaterialCategory;
-}
-
-export interface ReceivingDrafts {
-  material: Record<string, MaterialDraft>;
-}
+export const sizeNamesFromRange = (sizeRange: SizeRange[]): string[] =>
+  sizeRange.map((item) => item.name);

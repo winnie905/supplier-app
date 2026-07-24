@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import type { PhoneCountryCode } from '@/components/PhoneNumberField';
 import type { LoginMode } from '@/sections/auth/login/LoginOtpFormSection';
+import type { ProductionOrderTab } from '@/types/apps';
 
 export interface RootStackParamList extends ParamListBase {
   AppTabs: NavigatorScreenParams<AppTabParamList>;
@@ -19,6 +20,15 @@ export interface AuthStackParamList extends ParamListBase {
 
 export interface AppsStackParamList extends ParamListBase {
   AppsHome: undefined;
+  /** keyword：搜索框展示；productionOrderCode：选中后按单号拉统计/列表；tab：回填时选中的分类 */
+  ProductionOrders:
+    | {
+        keyword?: string;
+        productionOrderCode?: string;
+        tab?: ProductionOrderTab;
+      }
+    | undefined;
+  AppsSearch: { initialKeyword?: string } | undefined;
 }
 
 export interface ReportsStackParamList extends ParamListBase {

@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { createResourceHook } from '@/hooks/createResourceHook';
+import { useKeywordSearch } from '@/hooks/useKeywordSearch';
 import { receivingService } from '@/services/receiving/receivingService';
 import type {
   CuttingRecordsData,
@@ -43,52 +45,18 @@ export const useSelectedProductionColor = () => {
   return { data, loading, refresh, select, clear };
 };
 
+const useProductionColorDetailResource = createResourceHook<ProductionColorDetail | null>((id) =>
+  receivingService.getProductionColorDetail(id),
+);
+
 export const useProductionColorDetail = (id?: string | null) => {
-  const [detail, setDetail] = useState<ProductionColorDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const refresh = useCallback(async () => {
-    if (!id) {
-      setDetail(null);
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await receivingService.getProductionColorDetail(id);
-      setDetail(result);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { detail, loading, refresh };
+  const { data, loading, refresh } = useProductionColorDetailResource(id);
+  return { detail: data ?? null, loading, refresh };
 };
 
-export const useMaterialConfirmation = (productionColorId?: string) => {
-  const [data, setData] = useState<MaterialConfirmationData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const refresh = useCallback(async () => {
-    if (!productionColorId) return;
-    setLoading(true);
-    try {
-      const result = await receivingService.getMaterialConfirmation(productionColorId);
-      setData(result);
-    } finally {
-      setLoading(false);
-    }
-  }, [productionColorId]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { data, loading, refresh };
-};
+export const useMaterialConfirmation = createResourceHook<MaterialConfirmationData>((id) =>
+  receivingService.getMaterialConfirmation(id),
+);
 
 export const useFactoryExceptions = (
   productionColorId?: string,
@@ -111,87 +79,27 @@ export const useFactoryExceptions = (
   return { items, pendingCount, refresh };
 };
 
-export const useCuttingRecords = (productionColorId?: string) => {
-  const [data, setData] = useState<CuttingRecordsData | null>(null);
+export const useCuttingRecords = createResourceHook<CuttingRecordsData>(
+  (id) => receivingService.getCuttingRecords(id),
+  { withLoading: false },
+);
 
-  const refresh = useCallback(async () => {
-    if (!productionColorId) return;
-    const result = await receivingService.getCuttingRecords(productionColorId);
-    setData(result);
-  }, [productionColorId]);
+export const useSewingRecords = createResourceHook<SewingRecordsData>(
+  (id) => receivingService.getSewingRecords(id),
+  { withLoading: false },
+);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { data, refresh };
-};
-
-export const useSewingRecords = (productionColorId?: string) => {
-  const [data, setData] = useState<SewingRecordsData | null>(null);
-
-  const refresh = useCallback(async () => {
-    if (!productionColorId) return;
-    const result = await receivingService.getSewingRecords(productionColorId);
-    setData(result);
-  }, [productionColorId]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { data, refresh };
-};
-
-export const usePackingRecords = (productionColorId?: string) => {
-  const [data, setData] = useState<PackingRecordsData | null>(null);
-
-  const refresh = useCallback(async () => {
-    if (!productionColorId) return;
-    const result = await receivingService.getPackingRecords(productionColorId);
-    setData(result);
-  }, [productionColorId]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { data, refresh };
-};
+export const usePackingRecords = createResourceHook<PackingRecordsData>(
+  (id) => receivingService.getPackingRecords(id),
+  { withLoading: false },
+);
 
 export const useProductionColorSearch = () => {
-  const [results, setResults] = useState<ProductionColorSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const searchSeqRef = useRef(0);
-
-  const search = useCallback(async (keyword: string) => {
-    const trimmed = keyword.trim();
-    if (!trimmed) {
-      setResults([]);
-      setSearched(false);
-      setLoading(false);
-      return;
-    }
-
-    const seq = ++searchSeqRef.current;
-    setLoading(true);
-
-    try {
-      const list = await receivingService.searchProductionColors(trimmed);
-      if (seq !== searchSeqRef.current) {
-        return;
-      }
-      setResults(list);
-      setSearched(true);
-    } finally {
-      if (seq === searchSeqRef.current) {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  return { results, loading, searched, search };
+  const fetcher = useCallback(
+    (keyword: string) => receivingService.searchProductionColors(keyword),
+    [],
+  );
+  return useKeywordSearch<ProductionColorSummary>(fetcher);
 };
 
 export const useQrCodeResolve = () => {

@@ -4,7 +4,7 @@ export const GET_RECEIVING_SELECTED_PRODUCTION_COLOR = gql`
   query GetReceivingSelectedProductionColor {
     receivingSelectedProductionColor {
       id
-      productionOrderNo
+      productionOrderCode
       color
     }
   }
@@ -14,8 +14,8 @@ export const SEARCH_PRODUCTION_COLORS = gql`
   query SearchProductionColors($keyword: String!) {
     searchProductionColors(keyword: $keyword) {
       id
-      productionOrderNo
-      bulkStyleNo
+      productionOrderCode
+      productCode
       po
       brand
       color
@@ -27,8 +27,8 @@ export const GET_PRODUCTION_COLOR_DETAIL = gql`
   query GetProductionColorDetail($id: ID!) {
     productionColorDetail(id: $id) {
       id
-      productionOrderNo
-      bulkStyleNo
+      productionOrderCode
+      productCode
       po
       brand
       color
@@ -219,7 +219,7 @@ export const RESOLVE_QR_CODE = gql`
   query ResolveProductionColorQrCode($content: String!) {
     resolveProductionColorQrCode(content: $content) {
       id
-      productionOrderNo
+      productionOrderCode
       color
     }
   }

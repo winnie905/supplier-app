@@ -27,8 +27,8 @@ export const CornerCheckOption = ({
 
   return (
     <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
       onPress={onPress}
       style={[styles.item, selected && styles.itemSelected, style]}
     >

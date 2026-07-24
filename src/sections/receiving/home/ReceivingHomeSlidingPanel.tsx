@@ -48,18 +48,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFFFFF',
     overflow: 'hidden',
-    shadowColor: '#0A1F44',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 6,
   },
   panelInner: {
     flex: 1,
   },
   panelHandleWrap: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   panelHandle: {
     width: 75,

@@ -15,6 +15,7 @@ import { syncAndroidNavigationBar } from '@/navigation/androidNavigationBar';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { useAppStore } from '@/store/appStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { initSessionPollingLifecycle } from '@/utils/auth/sessionPolling';
 
 const AppContent = () => {
   const { isReady } = useAppInitialization();
@@ -26,6 +27,8 @@ const AppContent = () => {
     void useNetworkStore.getState().checkNetwork();
     return unsubscribe;
   }, []);
+
+  useEffect(() => initSessionPollingLifecycle(), []);
 
   const navigationTheme = useMemo(
     () => ({

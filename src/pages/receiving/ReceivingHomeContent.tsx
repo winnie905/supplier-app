@@ -234,7 +234,7 @@ const ReceivingHomeContentComponent = ({
   };
 
   const selectedSearchValue = selected
-    ? `${selected.bulkStyleNo}/${selected.color}/${selected.brand}`
+    ? `${selected.productCode}/${selected.color}/${selected.brand}`
     : undefined;
 
   const searchBar = (
@@ -298,7 +298,7 @@ const ReceivingHomeContentComponent = ({
                   />
                   <View style={styles.heroOverlay}>
                     <Text style={styles.heroTitle}>
-                      {selected.bulkStyleNo} | {selected.color}
+                      {selected.productCode} | {selected.color}
                     </Text>
                     <View style={styles.brandTag}>
                       <Text style={styles.brandTagText}>品牌 {selected.brand}</Text>

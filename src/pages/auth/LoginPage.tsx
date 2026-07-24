@@ -1,3 +1,4 @@
+import { getCountryCallingCode } from 'libphonenumber-js/min';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -8,9 +9,11 @@ import {
   View,
 } from 'react-native';
 
+import { AppModal } from '@/components/AppModal';
 import type { PhoneCountryCode } from '@/components/PhoneNumberField';
 import { getCallingCodeText, isValidPhoneNumberByCountry } from '@/components/PhoneNumberField';
 import { useToast } from '@/components/toast/Toast';
+import { DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE } from '@/constants/auth';
 import { ROUTES } from '@/constants/routes';
 import { useTncConsent } from '@/hooks/tnc/useTncConsent';
 import type { AuthScreenProps } from '@/navigation/types';
@@ -19,6 +22,7 @@ import { LoginHeroSection } from '@/sections/auth/login/LoginHeroSection';
 import { type LoginMode, LoginOtpFormSection } from '@/sections/auth/login/LoginOtpFormSection';
 import { LoginShell } from '@/sections/auth/login/LoginShell';
 import { TncConsentModal } from '@/sections/tnc/TncConsentModal';
+import { useLogin } from '@/services/auth/hooks/useLogin';
 import { useAuthStore } from '@/store/authStore';
 import {
   loadRememberedEmailLoginAccount,
@@ -30,13 +34,15 @@ import { getErrorMessage, isValidEmailFormat } from '@/utils/form';
 
 const CODE_COUNTDOWN_SECONDS = 60;
 
-const buildPendingUserId = (account: string) => `mock-user:${account.trim().toLowerCase()}`;
+const buildPendingUserId = (account: string) => `pending-user:${account.trim().toLowerCase()}`;
 
 type LoginPageProps = AuthScreenProps<'Login'>;
 
 export const LoginPage = ({ navigation }: LoginPageProps) => {
   const { showToast } = useToast();
-  const signIn = useAuthStore((state) => state.signIn);
+  const { loginByOtp, sendOtpCode, loading: isAuthLoading } = useLogin();
+  const sessionExpiredMessage = useAuthStore((state) => state.sessionExpiredMessage);
+  const consumeSessionExpiredMessage = useAuthStore((state) => state.consumeSessionExpiredMessage);
 
   const [loginMode, setLoginMode] = useState<LoginMode>('email');
   const [email, setEmail] = useState('');
@@ -45,13 +51,18 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
   const [agreed, setAgreed] = useState(false);
   const [accountError, setAccountError] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [agreementModalOpen, setAgreementModalOpen] = useState(false);
+  const [sessionExpiredModalVisible, setSessionExpiredModalVisible] = useState(false);
   const [phoneCountry, setPhoneCountry] = useState<PhoneCountryCode>('CN');
-  const [countdown, setCountdown] = useState(0);
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [emailCountdown, setEmailCountdown] = useState(0);
+  const [phoneCountdown, setPhoneCountdown] = useState(0);
+  const emailCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const phoneCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isPhoneMode = loginMode === 'phone';
+  const countdown = isPhoneMode ? phoneCountdown : emailCountdown;
   const account = isPhoneMode ? phone : email;
   const trimmedAccount = account.trim();
   const trimmedCode = verificationCode.trim();
@@ -66,7 +77,12 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
 
     return trimmedAccount;
   }, [isPhoneMode, phoneCountry, trimmedAccount]);
+  const areaCode = useMemo(
+    () => (isPhoneMode ? getCountryCallingCode(phoneCountry) : undefined),
+    [isPhoneMode, phoneCountry],
+  );
   const pendingUserId = loginAccount ? buildPendingUserId(loginAccount) : null;
+  const busy = isSendingCode || isSigningIn || isAuthLoading;
 
   const {
     confirmConsent,
@@ -76,6 +92,13 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     userId: pendingUserId,
     enabled: !!pendingUserId,
   });
+
+  useEffect(() => {
+    if (!sessionExpiredMessage) {
+      return;
+    }
+    setSessionExpiredModalVisible(true);
+  }, [sessionExpiredMessage]);
 
   useEffect(() => {
     const hydrate = async () => {
@@ -99,16 +122,16 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
   }, [loginMode]);
 
   useEffect(() => {
-    if (countdown <= 0) {
+    if (emailCountdown <= 0) {
       return;
     }
 
-    countdownTimerRef.current = setInterval(() => {
-      setCountdown((prev) => {
+    emailCountdownTimerRef.current = setInterval(() => {
+      setEmailCountdown((prev) => {
         if (prev <= 1) {
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
+          if (emailCountdownTimerRef.current) {
+            clearInterval(emailCountdownTimerRef.current);
+            emailCountdownTimerRef.current = null;
           }
           return 0;
         }
@@ -118,12 +141,39 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     }, 1000);
 
     return () => {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
+      if (emailCountdownTimerRef.current) {
+        clearInterval(emailCountdownTimerRef.current);
+        emailCountdownTimerRef.current = null;
       }
     };
-  }, [countdown > 0]); // eslint-disable-line react-hooks/exhaustive-deps -- restart timer when countdown begins
+  }, [emailCountdown > 0]); // eslint-disable-line react-hooks/exhaustive-deps -- restart timer when countdown begins
+
+  useEffect(() => {
+    if (phoneCountdown <= 0) {
+      return;
+    }
+
+    phoneCountdownTimerRef.current = setInterval(() => {
+      setPhoneCountdown((prev) => {
+        if (prev <= 1) {
+          if (phoneCountdownTimerRef.current) {
+            clearInterval(phoneCountdownTimerRef.current);
+            phoneCountdownTimerRef.current = null;
+          }
+          return 0;
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (phoneCountdownTimerRef.current) {
+        clearInterval(phoneCountdownTimerRef.current);
+        phoneCountdownTimerRef.current = null;
+      }
+    };
+  }, [phoneCountdown > 0]); // eslint-disable-line react-hooks/exhaustive-deps -- restart timer when countdown begins
 
   const isAccountFormatValid = useMemo(() => {
     if (!trimmedAccount) {
@@ -137,11 +187,11 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     return isValidEmailFormat(trimmedAccount);
   }, [isPhoneMode, phoneCountry, trimmedAccount]);
 
-  const canGetCode = isAccountFormatValid && countdown === 0 && !isSigningIn;
+  const canGetCode = isAccountFormatValid && countdown === 0 && !busy;
 
   const canLogin = useMemo(() => {
-    return isAccountFormatValid && !!trimmedCode && !isSigningIn;
-  }, [isAccountFormatValid, isSigningIn, trimmedCode]);
+    return isAccountFormatValid && !!trimmedCode && !busy;
+  }, [busy, isAccountFormatValid, trimmedCode]);
 
   const validateAccountFormat = () => {
     if (!trimmedAccount) {
@@ -195,7 +245,7 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     setLoginMode(mode);
   };
 
-  const handleGetCode = () => {
+  const handleGetCode = async () => {
     const formatError = validateAccountFormat();
 
     if (formatError) {
@@ -203,8 +253,46 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
       return;
     }
 
-    setCountdown(CODE_COUNTDOWN_SECONDS);
-    showToast('验证码已发送（mock）');
+    setIsSendingCode(true);
+    setAccountError('');
+
+    try {
+      const sendOtp = await sendOtpCode({
+        [isPhoneMode ? 'mobile' : 'email']: loginAccount,
+        areaCode,
+      });
+
+      // sendOtp === '' 表示账号不存在时也按发送成功处理，与 apex / PC 端一致
+      if (sendOtp === '' || sendOtp) {
+        if (isPhoneMode) {
+          setPhoneCountdown(CODE_COUNTDOWN_SECONDS);
+        } else {
+          setEmailCountdown(CODE_COUNTDOWN_SECONDS);
+        }
+        showToast('验证码已发送');
+      } else {
+        Alert.alert('提示', '验证码发送失败，请稍后重试');
+      }
+    } catch (error) {
+      Alert.alert('提示', getErrorMessage(error));
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  const rememberLoginAccountSafely = async () => {
+    try {
+      if (isPhoneMode) {
+        await saveRememberedPhoneLoginAccount({
+          phoneNumber: loginAccount,
+          countryCode: phoneCountry,
+        });
+        return;
+      }
+      await saveRememberedEmailLoginAccount({ email: loginAccount });
+    } catch (error) {
+      console.warn('[LoginPage] Failed to save remembered login account:', error);
+    }
   };
 
   const performLogin = async () => {
@@ -213,16 +301,12 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     setCodeError('');
 
     try {
-      await signIn(loginAccount);
-
-      if (isPhoneMode) {
-        await saveRememberedPhoneLoginAccount({
-          phoneNumber: loginAccount,
-          countryCode: phoneCountry,
-        });
-      } else {
-        await saveRememberedEmailLoginAccount({ email: loginAccount });
-      }
+      await loginByOtp({
+        otp: trimmedCode,
+        [isPhoneMode ? 'mobile' : 'email']: loginAccount,
+        areaCode,
+      });
+      void rememberLoginAccountSafely();
     } catch (error) {
       Alert.alert('提示', getErrorMessage(error));
     } finally {
@@ -262,6 +346,11 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     });
   };
 
+  const handleSessionExpiredModalClose = () => {
+    setSessionExpiredModalVisible(false);
+    consumeSessionExpiredMessage();
+  };
+
   const openPrivacyPolicy = () => {
     navigation.navigate(ROUTES.AUTH.PRIVACY_POLICY);
   };
@@ -293,12 +382,14 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
                 canGetCode={canGetCode}
                 countdown={countdown}
                 isPhoneMode={isPhoneMode}
-                isSigningIn={isSigningIn}
+                isSigningIn={busy}
                 onAccountChange={handleAccountChange}
                 onAccountBlur={handleAccountBlur}
                 onVerificationCodeChange={handleVerificationCodeChange}
                 onVerificationCodeBlur={handleVerificationCodeBlur}
-                onGetCode={handleGetCode}
+                onGetCode={() => {
+                  void handleGetCode();
+                }}
                 onLogin={handleLogin}
                 country={phoneCountry}
                 onCountryChange={setPhoneCountry}
@@ -327,6 +418,16 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
         onDisagree={() => {
           setAgreementModalOpen(false);
         }}
+      />
+
+      <AppModal
+        closeOnBackdropPress={false}
+        content={sessionExpiredMessage ?? DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE}
+        okText="我知道了"
+        onClose={handleSessionExpiredModalClose}
+        onOk={handleSessionExpiredModalClose}
+        title="登录提示"
+        visible={sessionExpiredModalVisible && Boolean(sessionExpiredMessage)}
       />
     </LoginShell>
   );

@@ -1,5 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -9,13 +9,14 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BackIcon from '@/assets/icons/back.svg';
+import { HighlightedText } from '@/components/HighlightedText';
 import { searchEmpty } from '@/components/images';
+import { SearchCapsuleBar } from '@/components/SearchCapsuleBar';
 import { ROUTES } from '@/constants/routes';
 import { useProductionColorSearch } from '@/hooks/receiving/useReceiving';
 import type { LogisticsScreenProps } from '@/navigation/types';
@@ -31,65 +32,22 @@ type ReceivingSearchPageProps = LogisticsScreenProps<'ReceivingSearch'>;
 const SEARCH_DEBOUNCE_MS = 300;
 const HIGHLIGHT_COLOR = '#105FC8';
 
-const getDisplayTitle = (item: ProductionColorSummary, keyword: string): string => {
+type SearchMatchField = 'productCode' | 'brand' | 'customerPO';
+
+/** 按命中字段决定首行展示：大货款号 > 品牌 > 客户PO */
+const resolveMatchField = (item: ProductionColorSummary, keyword: string): SearchMatchField => {
   const q = keyword.trim().toLowerCase();
-  if (!q) {
-    return item.bulkStyleNo;
-  }
-
-  const candidates = [item.bulkStyleNo, item.productionOrderNo, item.po, item.brand, item.color];
-
-  return candidates.find((value) => value.toLowerCase().includes(q)) ?? item.bulkStyleNo;
+  if (!q) return 'productCode';
+  if (item.productCode.toLowerCase().includes(q)) return 'productCode';
+  if (item.brand.toLowerCase().includes(q)) return 'brand';
+  if (item.customerPO.toLowerCase().includes(q)) return 'customerPO';
+  return 'productCode';
 };
 
-const HighlightedText = ({
-  text,
-  keyword,
-  style,
-  highlightStyle,
-}: {
-  text: string;
-  keyword: string;
-  style: object;
-  highlightStyle: object;
-}) => {
-  const parts = useMemo(() => {
-    const q = keyword.trim();
-    if (!q) {
-      return [{ text, highlight: false }];
-    }
-
-    const lowerText = text.toLowerCase();
-    const lowerQ = q.toLowerCase();
-    const segments: { text: string; highlight: boolean }[] = [];
-    let start = 0;
-    let index = lowerText.indexOf(lowerQ, start);
-
-    while (index !== -1) {
-      if (index > start) {
-        segments.push({ text: text.slice(start, index), highlight: false });
-      }
-      segments.push({ text: text.slice(index, index + q.length), highlight: true });
-      start = index + q.length;
-      index = lowerText.indexOf(lowerQ, start);
-    }
-
-    if (start < text.length) {
-      segments.push({ text: text.slice(start), highlight: false });
-    }
-
-    return segments.length > 0 ? segments : [{ text, highlight: false }];
-  }, [keyword, text]);
-
-  return (
-    <Text style={style}>
-      {parts.map((part, partIndex) => (
-        <Text key={`${part.text}-${partIndex}`} style={part.highlight ? highlightStyle : style}>
-          {part.text}
-        </Text>
-      ))}
-    </Text>
-  );
+const getTitleByMatch = (item: ProductionColorSummary, match: SearchMatchField): string => {
+  if (match === 'brand') return item.brand;
+  if (match === 'customerPO') return item.customerPO;
+  return item.productCode;
 };
 
 const SearchResultItem = ({
@@ -103,7 +61,15 @@ const SearchResultItem = ({
   isLast: boolean;
   onPress: () => void;
 }) => {
-  const title = getDisplayTitle(item, keyword);
+  const match = resolveMatchField(item, keyword);
+  const title = getTitleByMatch(item, match);
+
+  // 情况1 大货款号：二行 客户PO+颜色，三行 品牌
+  // 情况2 品牌：二行 大货款号+颜色，三行 客户PO
+  // 情况3 客户PO：二行 大货款号+颜色，三行 品牌
+  const secondLeft =
+    match === 'productCode' ? `客户PO：${item.customerPO}` : `大货款号：${item.productCode}`;
+  const thirdLine = match === 'brand' ? `客户PO：${item.customerPO}` : `品牌：${item.brand}`;
 
   return (
     <Pressable
@@ -124,12 +90,15 @@ const SearchResultItem = ({
       </View>
       <View style={styles.resultMetaRow}>
         <Text style={styles.resultMeta} numberOfLines={1}>
-          大货款号：{item.bulkStyleNo}
+          {secondLeft}
         </Text>
         <Text style={[styles.resultMeta, styles.resultMetaRight]} numberOfLines={1}>
           颜色：{item.color}
         </Text>
       </View>
+      <Text style={styles.resultMetaThird} numberOfLines={1}>
+        {thirdLine}
+      </Text>
     </Pressable>
   );
 };
@@ -214,8 +183,11 @@ export const ReceivingSearchPage = ({ navigation, route }: ReceivingSearchPagePr
     setKeyword('');
   };
 
-  const handleSelect = async (id: string) => {
-    await receivingService.selectProductionColor(id);
+  const handleSelect = async (item: ProductionColorSummary) => {
+    await receivingService.selectProductionColorByOrderAndColor(
+      item.productionOrderCode,
+      item.color,
+    );
     navigation.navigate(ROUTES.LOGISTICS.LOGISTICS_HOME);
   };
 
@@ -244,37 +216,13 @@ export const ReceivingSearchPage = ({ navigation, route }: ReceivingSearchPagePr
               <BackIcon color="#061B37" height={22} width={22} />
             </Pressable>
 
-            <View style={styles.capsule}>
-              <Text style={styles.inputSearchGlyph}>⌕</Text>
-              <TextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoFocus={autoFocusReady}
-                onChangeText={setKeyword}
-                onSubmitEditing={handleSearch}
-                placeholder="搜索大货款号/客户PO/品牌"
-                placeholderTextColor="#A8BBD4"
-                returnKeyType="search"
-                style={styles.input}
-                value={keyword}
-              />
-              {keyword.length > 0 ? (
-                <Pressable
-                  accessibilityLabel="清除"
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={handleClear}
-                  style={styles.clearBtn}
-                >
-                  <View style={styles.clearIcon}>
-                    <Text style={styles.clearGlyph}>×</Text>
-                  </View>
-                </Pressable>
-              ) : null}
-              <Pressable accessibilityRole="button" onPress={handleSearch} style={styles.searchBtn}>
-                <Text style={styles.searchBtnText}>搜索</Text>
-              </Pressable>
-            </View>
+            <SearchCapsuleBar
+              autoFocus={autoFocusReady}
+              value={keyword}
+              onChangeText={setKeyword}
+              onClear={handleClear}
+              onSearch={handleSearch}
+            />
           </View>
 
           {loading ? (
@@ -296,7 +244,7 @@ export const ReceivingSearchPage = ({ navigation, route }: ReceivingSearchPagePr
                   keyword={keyword}
                   isLast={index === results.length - 1}
                   onPress={() => {
-                    void handleSelect(item.id);
+                    void handleSelect(item);
                   }}
                 />
               )}
@@ -327,65 +275,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  capsule: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 40,
-    backgroundColor: '#F7F9FC',
-    borderRadius: 8,
-    overflow: 'hidden',
-    paddingLeft: 10,
-  },
-  inputSearchGlyph: {
-    fontSize: 20,
-    color: '#A8BBD4',
-  },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: 0,
-    fontSize: 15,
-    color: '#061B37',
-  },
-  clearBtn: {
-    paddingHorizontal: 6,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearIcon: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#C8D4E5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearGlyph: {
-    fontSize: 14,
-    lineHeight: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
   resultSearchGlyph: {
     fontSize: 16,
     color: '#A8BBD4',
     marginRight: 4,
-  },
-  searchBtn: {
-    height: 30,
-    paddingHorizontal: 8,
-    backgroundColor: '#105FC8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    margin: 5,
-  },
-  searchBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
   },
   loader: {
     marginTop: 40,
@@ -458,12 +351,19 @@ const styles = StyleSheet.create({
   },
   resultMeta: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
-    color: '#8A98AD',
+    color: '#6C829E',
   },
   resultMetaRight: {
     textAlign: 'right',
     flex: 1,
+  },
+  resultMetaThird: {
+    marginTop: 4,
+    marginLeft: 26,
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#6C829E',
   },
 });

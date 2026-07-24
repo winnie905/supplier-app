@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Image, type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import ArrowDownIcon from '@/assets/icons/arrowDown.svg';
+import ChevronRightIcon from '@/assets/icons/chevronRight.svg';
+import WarningTriangleIcon from '@/assets/icons/warningTriangle.svg';
 import type { ProductionColorDetail } from '@/types/receiving';
 import { resolveReceivingImage } from '@/utils/receiving/images';
 
@@ -88,9 +89,7 @@ export const ReceivingOrderInfoCard = ({
 
       {cornerTag ? (
         <View style={styles.cornerTag}>
-          <View style={styles.cornerTagIconWrap}>
-            <Text style={styles.cornerTagIcon}>!</Text>
-          </View>
+          <WarningTriangleIcon color="#FFFFFF" height={12} width={12} />
           <Text style={styles.cornerTagText} numberOfLines={1}>
             {cornerTag}
           </Text>
@@ -116,18 +115,18 @@ export const ReceivingOrderInfoCard = ({
                 {detail.brand}
               </Text>
             </View>
-            <InlineField label="款式类别" value={detail.styleCategory} />
-            <InlineField label="大货款号" value={detail.bulkStyleNo} />
-            <InlineField label="客户PO" value={detail.po} />
-            <InlineField label="要求出货日期" value={detail.requiredDeliveryDate} />
+            <InlineField label="款式类别" value={detail.category} />
+            <InlineField label="大货款号" value={detail.productCode} />
+            <InlineField label="客户PO" value={detail.customerPO} />
+            <InlineField label="要求出货日期" value={detail.requiredProductionDate} />
           </View>
         </View>
 
         {expanded ? (
           <View style={styles.expanded}>
-            <InlineField label="设计款号" value={detail.designNo} />
-            <InlineField label="客户款号" value={detail.customerStyleNo} />
-            <InlineField label="生产单号" value={detail.productionOrderNo} />
+            <InlineField label="设计款号" value={detail.code} />
+            <InlineField label="客户款号" value={detail.customerCode} />
+            <InlineField label="生产单号" value={detail.productionOrderCode} />
 
             <DashedDivider />
 
@@ -138,12 +137,12 @@ export const ReceivingOrderInfoCard = ({
               <View style={styles.twoColRight}>
                 <InlineField
                   label="加工方式"
-                  value={detail.processingMethod}
+                  value={detail.productionType}
                   style={styles.rightAlign}
                 />
               </View>
             </View>
-            <InlineField label="跟单员" value={detail.merchandiser} />
+            <InlineField label="跟单员" value={detail.productionFollowerName} />
           </View>
         ) : null}
 
@@ -153,7 +152,8 @@ export const ReceivingOrderInfoCard = ({
           style={styles.toggleBtn}
         >
           <Text style={styles.toggleText}>{expanded ? '收起' : '展开'}</Text>
-          <ArrowDownIcon
+
+          <ChevronRightIcon
             width={12}
             height={12}
             color="#105FC8"
@@ -183,27 +183,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderBottomRightRadius: 8,
-    backgroundColor: '#FDECEC',
-  },
-  cornerTagIconWrap: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E5484D',
-  },
-  cornerTagIcon: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    backgroundColor: '#FD8D77',
   },
   cornerTagText: {
     flexShrink: 1,
     fontSize: 12,
     lineHeight: 16,
-    color: '#E5484D',
+    color: '#FFFFFF',
     fontWeight: '500',
   },
   content: {

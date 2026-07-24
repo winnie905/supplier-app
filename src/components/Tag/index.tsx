@@ -11,9 +11,13 @@ interface CustomTagColor {
 
 type AppTagColor = TagPresetColor | CustomTagColor;
 
+type TagVariant = 'solid' | 'outline';
+
 interface AppTagProps {
   children: ReactNode;
   color?: AppTagColor;
+  /** solid：有背景色；outline：无背景，边框色同文字色 */
+  variant?: TagVariant;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 }
@@ -56,16 +60,29 @@ const TAG_COLOR_MAP: Record<TagPresetColor, CustomTagColor> = {
 const isCustomColor = (color: AppTagColor): color is CustomTagColor =>
   typeof color === 'object' && color !== null;
 
-export const Tag = ({ children, color = 'blue', style, textStyle }: AppTagProps) => {
+export const Tag = ({
+  children,
+  color = 'blue',
+  variant = 'solid',
+  style,
+  textStyle,
+}: AppTagProps) => {
   const colorConfig = isCustomColor(color) ? color : TAG_COLOR_MAP[color];
+  const isOutline = variant === 'outline';
 
   return (
     <View
       style={[
         styles.container,
-        {
-          backgroundColor: colorConfig.backgroundColor,
-        },
+        isOutline
+          ? {
+              backgroundColor: 'transparent',
+              borderWidth: 0.5,
+              borderColor: colorConfig.textColor,
+            }
+          : {
+              backgroundColor: colorConfig.backgroundColor,
+            },
         style,
       ]}
     >
@@ -92,10 +109,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
     fontSize: 14,
     fontWeight: 400,
     lineHeight: 14,
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });
