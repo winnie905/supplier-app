@@ -1,5 +1,5 @@
 /**
- * 箱规契约（对齐 REST：GET /api/box_specification/brand?brandId=&includeGeneral=）
+ * 箱规契约（对齐 getBoxSpecifications(brandId, includeGeneric)）
  */
 
 import type { BoxSpecificationType } from '@/types/cropOrder';
@@ -23,6 +23,6 @@ export interface BoxSpecification {
 
 export interface BoxSpecificationByBrandInput {
   brandId: number;
-  /** 是否包含通用箱子，默认 true */
+  /** 是否包含通用箱子，默认 true（映射为 BFF includeGeneric） */
   includeGeneral?: boolean;
 }

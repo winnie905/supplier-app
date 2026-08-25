@@ -1,4 +1,4 @@
-import { HStack, Image } from 'design-system-native';
+import { designTokens, HStack, Image } from 'design-system-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import CheckIcon from '@/assets/icons/check.svg';
@@ -65,7 +65,7 @@ export const PackingCartonSheet = ({
               <View style={styles.cartonCorner}>
                 <View style={styles.cartonCornerTriangle} />
                 <View style={styles.cartonCornerCheck}>
-                  <CheckIcon color="#FFFFFF" height={8} width={8} />
+                  <CheckIcon color={designTokens.colors.gray[0]} height={8} width={8} />
                 </View>
               </View>
             ) : null}
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E5EBF3',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     paddingHorizontal: 14,
     paddingVertical: 14,
     overflow: 'hidden',
@@ -108,18 +108,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#5DD897',
   },
   cartonTagGeneral: {
-    backgroundColor: '#FFB133',
+    backgroundColor: designTokens.colors.warning,
   },
   cartonTagText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   cartonName: {
     fontSize: 18,
     color: '#0C2A52',
   },
   cartonNameSelected: {
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontWeight: '600',
   },
   cartonCorner: {

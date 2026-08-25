@@ -6,26 +6,31 @@ import { gql } from '@apollo/client';
 export const GET_USER_INFO_QUERY = gql`
   query GetUserInfo {
     user {
-      avatar
       username
       email
       lastName
       firstName
+      supplier {
+        id
+        isDeleted
+        name
+      }
+      avatar
       products {
         name
-        roles {
-          id
-          name
-          privileges {
-            id
-            name
-            displayName
-          }
-        }
       }
     }
   }
 `;
+// roles {
+//   id
+//   name
+//   privileges {
+//     id
+//     name
+//     displayName
+//   }
+// }
 
 export const GET_QRCODE_STATUS_QUERY = gql`
   query GetQrcodeStatus($deviceId: String!) {

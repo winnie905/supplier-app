@@ -1,3 +1,4 @@
+import { designTokens } from 'design-system-native';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,7 +45,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingTop: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E5EBF3',
   },

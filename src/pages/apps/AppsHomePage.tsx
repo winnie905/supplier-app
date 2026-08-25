@@ -1,5 +1,5 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, Text } from 'design-system-native';
 import { useId, useState } from 'react';
 import {
   Image,
@@ -13,9 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { appsBackgroundImage, companyImage, orderSearchEntryImage } from '@/components/images';
-import { APPS_COMPANY_NAME, APPS_ENTRIES, type AppsEntryKey } from '@/constants/apps';
+import { APPS_ENTRIES, type AppsEntryKey } from '@/constants/apps';
 import { ROUTES } from '@/constants/routes';
 import type { AppsScreenProps } from '@/navigation/types';
+import { useAuthStore } from '@/store/authStore';
 import { getSafeAreaTopInset } from '@/utils/app';
 
 type AppsHomePageProps = AppsScreenProps<'AppsHome'>;
@@ -41,13 +42,13 @@ const EntryListChrome = ({
       <Defs>
         {/* background: linear-gradient(180deg, #ffffffcc 0%, #ffffff80 98%) */}
         <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.8" />
-          <Stop offset="0.98" stopColor="#FFFFFF" stopOpacity="0.5" />
+          <Stop offset="0" stopColor={designTokens.colors.gray[0]} stopOpacity="0.8" />
+          <Stop offset="0.98" stopColor={designTokens.colors.gray[0]} stopOpacity="0.5" />
         </LinearGradient>
         {/* border-image: linear-gradient(180deg, #ffffff 0%, #ffffff00 100%) */}
         <LinearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+          <Stop offset="0" stopColor={designTokens.colors.gray[0]} stopOpacity="1" />
+          <Stop offset="1" stopColor={designTokens.colors.gray[0]} stopOpacity="0" />
         </LinearGradient>
       </Defs>
       <Rect
@@ -89,8 +90,8 @@ const EntryCardChrome = ({
         </LinearGradient>
         {/* border-image: linear-gradient(180deg, #ffffff 0%, #ffffff00 100%) */}
         <LinearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+          <Stop offset="0" stopColor={designTokens.colors.gray[0]} stopOpacity="1" />
+          <Stop offset="1" stopColor={designTokens.colors.gray[0]} stopOpacity="0" />
         </LinearGradient>
       </Defs>
       <Rect
@@ -114,6 +115,7 @@ export const AppsHomePage = ({ navigation }: AppsHomePageProps) => {
   const topInset = getSafeAreaTopInset(insets.top);
   const gradientId = useId().replace(/:/g, '');
   const [listSize, setListSize] = useState({ width: 0, height: 0 });
+  const supplierName = useAuthStore((state) => state.user?.supplier?.name ?? '');
 
   const handlePressEntry = (key: AppsEntryKey) => {
     if (key === 'order_search') {
@@ -132,10 +134,7 @@ export const AppsHomePage = ({ navigation }: AppsHomePageProps) => {
     <ImageBackground resizeMode="cover" source={appsBackgroundImage} style={styles.page}>
       <ScrollView
         bounces={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: topInset + 8, paddingBottom: tabBarHeight + 24 },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topInset + 8 }]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.pageTitle}>应用</Text>
@@ -143,14 +142,17 @@ export const AppsHomePage = ({ navigation }: AppsHomePageProps) => {
         <View style={styles.companyBlock}>
           <View style={styles.companyRow}>
             <Image source={companyImage} style={styles.companyIcon} />
-            <Text numberOfLines={1} style={styles.companyName}>
-              {APPS_COMPANY_NAME}
+            <Text numberOfLines={1} strong style={styles.companyName}>
+              {supplierName}
             </Text>
           </View>
           <Text style={styles.welcome}>欢迎使用 D&J Supplier</Text>
         </View>
 
-        <View style={styles.entryList} onLayout={onListLayout}>
+        <View
+          style={[styles.entryList, { paddingBottom: tabBarHeight + 24 }]}
+          onLayout={onListLayout}
+        >
           <EntryListChrome
             width={listSize.width}
             height={listSize.height}
@@ -172,7 +174,9 @@ export const AppsHomePage = ({ navigation }: AppsHomePageProps) => {
                   gradientId={`${gradientId}-${entry.key}`}
                 />
                 <View style={styles.entryTextCol}>
-                  <Text style={styles.entryTitle}>{entry.title}</Text>
+                  <Text strong style={styles.entryTitle}>
+                    {entry.title}
+                  </Text>
                   <Text style={styles.entrySubtitle}>{entry.subtitle}</Text>
                 </View>
                 <Image
@@ -201,7 +205,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
     marginBottom: 20,
   },
   companyBlock: {
@@ -222,13 +226,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   welcome: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   entryList: {
+    // 面板延伸到页面底部，卡片区仍避开底部 Tab
+    flex: 1,
     borderRadius: 12,
     padding: 12,
     gap: 16,

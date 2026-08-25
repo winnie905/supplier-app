@@ -1,4 +1,4 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Modal, Pressable, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import BackIcon from '@/assets/icons/back.svg';
 import CloseIcon from '@/assets/icons/close.svg';
-import { AppModal } from '@/components/AppModal';
 import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 
 export type DrawerModalHeight = 'auto' | 'max' | number;
@@ -109,7 +108,7 @@ export const DrawerModal = ({
   }, [availableHeight, height]);
 
   return (
-    <AppModal
+    <Modal
       visible={visible}
       onClose={handleClose}
       animationType="slide"
@@ -169,7 +168,7 @@ export const DrawerModal = ({
       )}
 
       {footer ? <View style={styles.footer}>{footer}</View> : null}
-    </AppModal>
+    </Modal>
   );
 };
 
@@ -190,7 +189,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     overflow: 'hidden',
   },
   sheetHeader: {

@@ -1,12 +1,11 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { Card, VStack } from 'design-system-native';
+import { Card, Modal, VStack } from 'design-system-native';
 import { useMemo, useState } from 'react';
 import { ImageBackground, ScrollView, StyleSheet, View } from 'react-native';
 import { getVersion } from 'react-native-device-info';
 
 import CareModeIcon from '@/assets/icons/care.svg';
 import InfoIcon from '@/assets/icons/icon_about.svg';
-import { AppModal } from '@/components/AppModal';
 import { meBackgroundImage } from '@/components/images';
 import { ToggleSwitch } from '@/components/ToggleSwitch';
 import { ROUTES } from '@/constants/routes';
@@ -17,6 +16,7 @@ import { MeProfileSection } from '@/sections/me/MeProfileSection';
 import { MeSettingsSection } from '@/sections/me/MeSettingsSection';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
+import { useCareModeStore } from '@/store/careModeStore';
 
 type MePageProps = MeScreenProps<'MeHome'>;
 
@@ -27,7 +27,8 @@ export const MePage = ({ navigation }: MePageProps) => {
   const signOut = useAuthStore((state) => state.signOut);
   const user = useAuthStore((state) => state.user);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
-  const [isCareMode, setIsCareMode] = useState(false);
+  const careModeEnabled = useCareModeStore((state) => state.enabled);
+  const setCareModeEnabled = useCareModeStore((state) => state.setEnabled);
   const setLoading = useAppStore((state) => state.setLoading);
 
   const settingsItems = useMemo(
@@ -42,11 +43,11 @@ export const MePage = ({ navigation }: MePageProps) => {
       },
       {
         icon: <CareModeIcon color={colors.text} />,
-        rightLabel: <ToggleSwitch value={isCareMode} onValueChange={setIsCareMode} />,
+        rightLabel: <ToggleSwitch value={careModeEnabled} onValueChange={setCareModeEnabled} />,
         title: '关怀模式',
       },
     ],
-    [colors.text, navigation, isCareMode],
+    [careModeEnabled, colors.text, navigation, setCareModeEnabled],
   );
 
   const handleCloseLogoutModal = () => {
@@ -120,7 +121,7 @@ export const MePage = ({ navigation }: MePageProps) => {
           </VStack>
         </ScrollView>
 
-        <AppModal
+        <Modal
           visible={isLogoutOpen}
           animationType="fade"
           onClose={handleCloseLogoutModal}

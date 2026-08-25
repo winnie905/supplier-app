@@ -1,21 +1,26 @@
+import { designTokens } from 'design-system-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import CheckIcon from '@/assets/icons/check.svg';
+import WarningTriangleIcon from '@/assets/icons/warningTriangle.svg';
 import { ReceivingStatusBadge } from '@/sections/receiving/ReceivingStatusBadge';
 import type { MaterialItem, MaterialItemStatus } from '@/types/receiving';
 
 const PRIMARY_STATUS: MaterialItemStatus[] = ['pending', 'arrived'];
-const WARNING_STATUS: MaterialItemStatus[] = ['shortage', 'quality_issue'];
 
 const STATUS_BADGE: Record<'pending' | 'arrived', { label: string; tone: 'blue' | 'green' }> = {
   pending: { label: '待确认', tone: 'blue' },
   arrived: { label: '已到料', tone: 'green' },
 };
 
-const WARNING_LABEL: Record<'shortage' | 'quality_issue', string> = {
-  shortage: '缺料',
-  quality_issue: '质量问题',
+/** 数量/幅宽展示：数值 + 接口单位（单位已含在数值里则不重复拼） */
+const formatMeasure = (value: string, unit?: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const unitLabel = unit?.trim();
+  if (!unitLabel || trimmed.endsWith(unitLabel)) return trimmed;
+  return `${trimmed}${unitLabel}`;
 };
 
 /** 面辅料虚线：4 实 + 4 空，色 #BCD4F4、粗细 1 */
@@ -37,7 +42,7 @@ const FabricDashedDivider = () => (
 
 export const CircleCheck = ({ checked }: { checked: boolean }) => (
   <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-    {checked ? <CheckIcon color="#FFFFFF" height={10} width={10} /> : null}
+    {checked ? <CheckIcon color={designTokens.colors.gray[0]} height={10} width={10} /> : null}
   </View>
 );
 
@@ -45,17 +50,16 @@ export const MaterialItemCard = ({
   item,
   checked,
   onToggle,
+  exceptionLabel,
 }: {
   item: MaterialItem;
   checked: boolean;
   onToggle: () => void;
+  /** 待回复异常类型文案，如「缺料、质量问题」 */
+  exceptionLabel?: string;
 }) => {
   const primary =
     item.statuses.find((s): s is 'pending' | 'arrived' => PRIMARY_STATUS.includes(s)) ?? 'pending';
-  const warnings = item.statuses.filter((s): s is 'shortage' | 'quality_issue' =>
-    WARNING_STATUS.includes(s),
-  );
-  const warningText = warnings.map((s) => WARNING_LABEL[s]).join('、');
   const isPackaging = item.category === 'packaging';
   const isFabric = item.category === 'fabric';
   const isDataPackage = item.category === 'data_package';
@@ -68,17 +72,22 @@ export const MaterialItemCard = ({
           styles.itemTitleRow,
           isPackaging && styles.itemTitleRowHorizontal,
           isFabric && styles.itemTitleRowFabric,
+          Boolean(exceptionLabel) && styles.itemTitleRowWithException,
         ]}
       >
-        {(isPackaging || isFabric) && warningText ? (
+        {exceptionLabel ? (
           <View style={styles.warningTagCorner}>
-            <Text style={styles.warningTagText}>{warningText}</Text>
+            <WarningTriangleIcon color={designTokens.colors.gray[0]} height={12} width={12} />
+            <Text style={styles.warningTagText} numberOfLines={1}>
+              {exceptionLabel}
+            </Text>
           </View>
         ) : null}
 
         <View style={[styles.itemNameRow, isPackaging && styles.itemNameRowCompact]}>
           <ReceivingStatusBadge
             compact
+            outline
             label={STATUS_BADGE[primary].label}
             tone={STATUS_BADGE[primary].tone}
           />
@@ -107,14 +116,20 @@ export const MaterialItemCard = ({
                 <View style={styles.fabricQtyWidthRow}>
                   {item.quantity ? (
                     <Text style={[styles.fabricMetaLine, styles.fabricQtyWidthCol]}>
-                      数量：{item.quantity}
+                      数量：{formatMeasure(item.quantity, item.unit)}
                     </Text>
                   ) : (
                     <View style={styles.fabricQtyWidthCol} />
                   )}
                   {item.width ? (
-                    <Text style={[styles.fabricMetaLine, styles.fabricQtyWidthCol]}>
-                      幅宽：{item.width}
+                    <Text
+                      style={[
+                        styles.fabricMetaLine,
+                        styles.fabricQtyWidthCol,
+                        styles.fabricWidthAlign,
+                      ]}
+                    >
+                      幅宽：{formatMeasure(item.width, item.unit)}
                     </Text>
                   ) : null}
                 </View>
@@ -123,7 +138,9 @@ export const MaterialItemCard = ({
             {item.supplier ? (
               <>
                 <FabricDashedDivider />
-                <Text style={styles.fabricMetaLine}>供应商：{item.supplier}</Text>
+                <Text style={[styles.fabricMetaLine, styles.fabricSupplierLine]}>
+                  供应商：{item.supplier}
+                </Text>
               </>
             ) : null}
           </>
@@ -144,15 +161,15 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#DADEE5',
+    borderColor: designTokens.colors.gray[200],
     marginTop: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
   },
   checkboxChecked: {
-    borderColor: '#105FC8',
-    backgroundColor: '#105FC8',
+    borderColor: designTokens.colors.brand[500],
+    backgroundColor: designTokens.colors.brand[500],
   },
   itemTitleRow: {
     flexGrow: 1,
@@ -165,6 +182,7 @@ const styles = StyleSheet.create({
     gap: 12,
     flexDirection: 'column',
     backgroundColor: '#F3F8FA',
+    overflow: 'hidden',
   },
   itemTitleRowHorizontal: {
     flexDirection: 'row',
@@ -173,13 +191,36 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 12,
     paddingBottom: 12,
-    overflow: 'hidden',
   },
   itemTitleRowFabric: {
     gap: 0,
     paddingTop: 12,
     paddingBottom: 12,
-    overflow: 'hidden',
+  },
+  itemTitleRowWithException: {
+    paddingRight: 16,
+    paddingTop: 16,
+  },
+  warningTagCorner: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 1,
+    maxWidth: '72%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FD8D77',
+    borderBottomLeftRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  warningTagText: {
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    color: designTokens.colors.gray[0],
+    fontWeight: '500',
   },
   itemNameRow: {
     flexDirection: 'row',
@@ -204,22 +245,6 @@ const styles = StyleSheet.create({
     color: '#021626',
     lineHeight: 22,
   },
-  warningTagCorner: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 1,
-    backgroundColor: '#FFF3E6',
-    borderBottomLeftRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  warningTagText: {
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#E67E22',
-    fontWeight: '500',
-  },
   dashedWrap: {
     alignSelf: 'stretch',
     height: 1,
@@ -231,6 +256,9 @@ const styles = StyleSheet.create({
     color: '#6B7A90',
     paddingVertical: 8,
   },
+  fabricSupplierLine: {
+    paddingBottom: 0,
+  },
   fabricQtyWidthRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -239,6 +267,9 @@ const styles = StyleSheet.create({
   fabricQtyWidthCol: {
     flex: 1,
     minWidth: 0,
+  },
+  fabricWidthAlign: {
+    textAlign: 'right',
   },
   itemMetaLine: {
     fontSize: 14,

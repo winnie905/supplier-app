@@ -1,16 +1,17 @@
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from '@apollo/client';
 import { SetContextLink } from '@apollo/client/link/context';
 import { ErrorLink } from '@apollo/client/link/error';
-import { Alert } from 'react-native';
+import { getMainDefinition } from '@apollo/client/utilities';
 import DeviceInfo from 'react-native-device-info';
 
 import { env } from '@/config/env';
 import { APP_NAME } from '@/constants/app';
-import { useAuthStore } from '@/store/authStore';
+import { getAuthGeneration, useAuthStore } from '@/store/authStore';
 import { ProductEnum } from '@/types';
-import { buildUserAgent } from '@/utils/app';
-import { getSession } from '@/utils/auth/authStorage';
+import { buildUserAgent, logger } from '@/utils/app';
+import { getSession, peekSessionCache } from '@/utils/auth/authStorage';
 import { findKickedOfflineError, isUnauthorizedGraphQLError } from '@/utils/auth/sessionError';
+import { stripTypename } from '@/utils/graphql/stripTypename';
 
 const GRAPHQL_URL = env.GRAPHQL_URL;
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -21,8 +22,10 @@ const HEADER_DEVICE_ID = 'x-device-id';
 const HEADER_PRODUCT = 'product';
 const HEADER_USER_AGENT = 'user-agent';
 const HEADER_X_PRODUCT_TYPE = 'x-product-type';
+const HEADER_X_USER_TYPE = 'x-user-type';
 
 const PRODUCT_TYPE = 'APP';
+const USER_TYPE = 'Supplier';
 const ANONYMOUS_OPERATION_NAME = 'anonymous';
 const UNKNOWN_DEVICE_ID = 'unknown-device';
 
@@ -154,7 +157,7 @@ function getDeviceIdCached(): Promise<string> {
  *
  * 注意：
  * - product 允许上游 link 覆盖
- * - user-agent / x-product-type / x-device-id 由客户端统一维护
+ * - user-agent / x-product-type / x-user-type / x-device-id 由客户端统一维护
  */
 async function buildCommonHeaders(prevHeaders: SafeHeaders): Promise<SafeHeaders> {
   const deviceId = await getDeviceIdCached();
@@ -165,6 +168,7 @@ async function buildCommonHeaders(prevHeaders: SafeHeaders): Promise<SafeHeaders
     [HEADER_PRODUCT]: prevHeaders[HEADER_PRODUCT] ?? DEFAULT_PRODUCT_HEADER,
     [HEADER_USER_AGENT]: USER_AGENT,
     [HEADER_X_PRODUCT_TYPE]: PRODUCT_TYPE,
+    [HEADER_X_USER_TYPE]: prevHeaders[HEADER_X_USER_TYPE] ?? USER_TYPE,
   };
 }
 
@@ -194,82 +198,37 @@ const authLink = new SetContextLink(async (prevContext: Readonly<ApolloLink.Oper
 
   return {
     headers: applyAuthorizationToHeaders(prevHeaders, session?.token),
+    authToken: session?.token ?? null,
+    authGeneration: getAuthGeneration(),
   };
 });
 
 /**
- * 单飞 signOut。
- *
- * 多个接口同时返回 401 时，只允许触发一次退出流程。
+ * 请求发出后 token / 登录世代已变，说明这是换票或重新登录前的在途请求。
+ * 其 401 不能再触发登出，否则会把刚换到的新会话踢掉。
  */
-let signOutPromise: Promise<void> | null = null;
-
-async function signOutOnce(): Promise<void> {
-  signOutPromise ??= useAuthStore
-    .getState()
-    .signOut()
-    .finally(() => {
-      signOutPromise = null;
-    });
-
-  return signOutPromise;
-}
-
-/**
- * 获取 401 自动登出的国际化文案。
- *
- * 注意：
- * 401 弹窗使用硬编码中文文案。
- */
-function getUnauthorizedAlertText() {
-  return {
-    title: '登录已过期',
-    message: '为了保障账号安全，请重新登录后继续使用。',
-    confirmText: '重新登录',
+function isStaleAuthenticatedOperation(operation: ApolloLink.Operation): boolean {
+  const context = operation.getContext() as {
+    authToken?: string | null;
+    authGeneration?: number;
   };
-}
 
-/**
- * 401 弹窗。
- *
- * 用 Promise 包一层，让 Alert 的生命周期可以和 signOut 流程统一管理。
- *
- * 注意：
- * - 是否允许再次弹窗，由 unauthorizedLogoutFlowPromise 统一控制。
- */
-function showUnauthorizedAlert(): Promise<void> {
-  const { title, message, confirmText } = getUnauthorizedAlertText();
+  if (
+    typeof context.authGeneration === 'number' &&
+    context.authGeneration !== getAuthGeneration()
+  ) {
+    return true;
+  }
 
-  return new Promise((resolve) => {
-    Alert.alert(
-      title,
-      message,
-      [
-        {
-          text: confirmText,
-          onPress: () => {
-            resolve();
-          },
-        },
-      ],
-      {
-        cancelable: false,
-        onDismiss: () => {
-          resolve();
-        },
-      },
-    );
-  });
+  const requestToken = context.authToken ?? null;
+  const currentToken = peekSessionCache()?.token ?? null;
+  return Boolean(requestToken && currentToken && requestToken !== currentToken);
 }
 
 /**
  * 401 自动登出完整流程单飞。
  *
- * 这个 Promise 覆盖两个生命周期：
- * 1. signOutOnce()：清理本地登录态、跳转登录页等异步操作
- * 2. showUnauthorizedAlert()：用户看到并确认登录过期弹窗
- *
- * 只要这两个流程任意一个还没结束，后续 401 都不再重复弹窗。
+ * 登出后由登录页 Modal 提示「登录已过期」，样式与挤下线弹窗一致。
  */
 let unauthorizedLogoutFlowPromise: Promise<void> | null = null;
 
@@ -282,8 +241,12 @@ function startUnauthorizedLogoutFlowOnce(): Promise<void> {
     return unauthorizedLogoutFlowPromise;
   }
 
-  unauthorizedLogoutFlowPromise = Promise.allSettled([signOutOnce(), showUnauthorizedAlert()])
-    .then(() => undefined)
+  unauthorizedLogoutFlowPromise = useAuthStore
+    .getState()
+    .handleSessionExpired({
+      reason: 'expired',
+      skipLogoutRequest: true,
+    })
     .finally(() => {
       unauthorizedLogoutFlowPromise = null;
     });
@@ -312,6 +275,20 @@ function startKickedOfflineLogoutFlowOnce(message: string): Promise<void> {
   return kickedOfflineLogoutFlowPromise;
 }
 
+const logGraphqlError = (
+  operation: ApolloLink.Operation,
+  payload: { errors?: readonly unknown[]; error?: unknown },
+) => {
+  const definition = getMainDefinition(operation.query);
+  const operationType = 'operation' in definition ? definition.operation : 'unknown';
+
+  console.error('[GraphQL Error]', {
+    method: `${operationType} ${operation.operationName ?? ANONYMOUS_OPERATION_NAME}`,
+    variables: operation.variables,
+    ...payload,
+  });
+};
+
 /**
  * 登录相关 client 的错误处理。
  *
@@ -320,6 +297,8 @@ function startKickedOfflineLogoutFlowOnce(message: string): Promise<void> {
  * 只处理公共错误，例如超时。
  */
 const commonErrorLink = new ErrorLink(({ error, operation }) => {
+  logGraphqlError(operation, { error });
+
   if (isRequestTimeoutError(error)) {
     handleTimeoutError(error, operation.operationName);
   }
@@ -330,14 +309,20 @@ const commonErrorLink = new ErrorLink(({ error, operation }) => {
  *
  * 当前规则：
  * 1. 超时：统一记录
- * 2. 401 且 message 含「其他设备登录」：挤下线流程，登录页 AppModal 提示
- * 3. 其他 401：沿用登录过期 Alert + signOut
+ * 2. 401 且 message 含「其他设备登录」：挤下线流程，登录页 Modal 提示
+ * 3. 其他 401：登录页「登录已过期」Modal + signOut
  * 4. 不 refresh token
  * 5. 不重放当前请求
  */
 const errorLink = new ErrorLink(({ error, operation }) => {
+  logGraphqlError(operation, { error });
+
   if (isRequestTimeoutError(error)) {
     handleTimeoutError(error, operation.operationName);
+    return;
+  }
+
+  if (isStaleAuthenticatedOperation(operation)) {
     return;
   }
 
@@ -416,17 +401,54 @@ const httpLink = new HttpLink({
 });
 
 /**
+ * mutation / query variables 统一去掉 __typename，避免 Input Object 校验失败。
+ */
+const stripTypenameLink = new ApolloLink((operation, forward) => {
+  if (operation.variables && Object.keys(operation.variables).length > 0) {
+    operation.variables = stripTypename(operation.variables);
+  }
+  return forward(operation);
+});
+
+/**
+ * 调试日志：打印 operation 名称、类型与 variables（仅 APP_ENV=dev）。
+ * 放在 stripTypenameLink 之后，与实际上送参数一致。
+ */
+const loggingLink = new ApolloLink((operation, forward) => {
+  const definition = getMainDefinition(operation.query);
+  const operationType = 'operation' in definition ? definition.operation : 'unknown';
+
+  logger.info('[GraphQL]', {
+    method: `${operationType} ${operation.operationName ?? ANONYMOUS_OPERATION_NAME}`,
+    variables: operation.variables,
+  });
+
+  return forward(operation);
+});
+
+/**
  * 业务接口 client。
  *
  * 链路顺序：
- * 1. commonHeadersLink：写入设备、产品、UA 等公共头
- * 2. authLink：写入 Authorization
- * 3. errorLink：处理超时、401 自动退出
- * 4. httpLink：真正发起请求
+ * 1. stripTypenameLink：去掉 variables 中的 __typename
+ * 2. loggingLink：调试打印 method / variables
+ * 3. commonHeadersLink：写入设备、产品、UA 等公共头
+ * 4. authLink：写入 Authorization
+ * 5. errorLink：处理超时、401 自动退出
+ * 6. httpLink：真正发起请求
  */
 export const apolloClient = new ApolloClient({
-  link: ApolloLink.from([commonHeadersLink, authLink, errorLink, httpLink]),
+  link: ApolloLink.from([
+    stripTypenameLink,
+    loggingLink,
+    commonHeadersLink,
+    authLink,
+    errorLink,
+    httpLink,
+  ]),
   cache: new InMemoryCache(),
+  // 换票后同一 query 不能复用换票前的在途请求，否则会带上旧 token
+  queryDeduplication: false,
 });
 
 /**
@@ -436,6 +458,12 @@ export const apolloClient = new ApolloClient({
  * 所以这里不挂 authLink，也不挂 401 自动退出逻辑。
  */
 export const loginClient = new ApolloClient({
-  link: ApolloLink.from([commonHeadersLink, commonErrorLink, httpLink]),
+  link: ApolloLink.from([
+    stripTypenameLink,
+    loggingLink,
+    commonHeadersLink,
+    commonErrorLink,
+    httpLink,
+  ]),
   cache: new InMemoryCache(),
 });

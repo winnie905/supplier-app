@@ -1,23 +1,31 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, Tag, Text } from 'design-system-native';
 import { memo } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import ChevronRightIcon from '@/assets/icons/chevronRight.svg';
 import OrderStatusIcon from '@/assets/icons/orderStatus.svg';
-import { Tag } from '@/components/Tag';
+import { BrandBadge } from '@/components/BrandBadge';
+import { OrderInfoThumbnail } from '@/components/OrderInfoThumbnail';
+import { useAppTheme } from '@/hooks/useAppTheme';
+import { formatUserName } from '@/services/receiving/mapReceivingHelpers';
 import type {
   ProductionColorProgressStatus,
   ProductionOrderAggregateStatus,
   ProductionOrderView,
 } from '@/types/apps';
 import { mapProductionStatusToProgress } from '@/types/apps';
-import { resolveReceivingImage } from '@/utils/receiving/images';
+import { toDateOnly } from '@/utils/date';
+import { formatCount } from '@/utils/number';
 
 interface ProductionOrderCardProps {
   order: ProductionOrderView;
+  /** 仅在超期 Tab 下展示「超期」角标 */
+  showOverdueBadge?: boolean;
+  /** 第二行款式类别展示文案（已按 getSystemConfig.categories 映射） */
+  categoryLabel?: string;
   expanded: boolean;
   onToggleExpand: () => void;
-  onColorPress: (productionColorId: string) => void;
+  onColorPress: (ref: { productionOrderCode: string; color: string }) => void;
 }
 
 const ORDER_STATUS_LABEL: Record<ProductionOrderAggregateStatus, string> = {
@@ -33,16 +41,10 @@ const COLOR_STATUS_LABEL: Record<ProductionColorProgressStatus, string> = {
   completed: '已完成',
 };
 
-const ORDER_ACCENT: Record<ProductionOrderAggregateStatus, string> = {
-  pending: '#FAC368',
-  in_progress: '#56A1E8',
-  completed: '#1A9F5C',
-};
-
 const ORDER_STATUS_BADGE: Record<ProductionOrderAggregateStatus, string> = {
   pending: '#FAC368',
   in_progress: '#56A1E8',
-  completed: '#1A9F5C',
+  completed: designTokens.colors.success,
 };
 
 const OVERDUE_BADGE_COLOR = '#FF8789';
@@ -52,42 +54,54 @@ const COLOR_STATUS_TAG: Record<
   { backgroundColor: string; textColor: string }
 > = {
   ordered: { backgroundColor: '#FFF3E6', textColor: '#FF8A3D' },
-  in_progress: { backgroundColor: '#E8F1FC', textColor: '#105FC8' },
-  partial: { backgroundColor: '#E8F1FC', textColor: '#105FC8' },
-  completed: { backgroundColor: '#E8F8EF', textColor: '#1A9F5C' },
+  in_progress: { backgroundColor: '#E8F1FC', textColor: designTokens.colors.brand[500] },
+  partial: { backgroundColor: '#E8F1FC', textColor: designTokens.colors.brand[500] },
+  completed: { backgroundColor: '#E8F8EF', textColor: designTokens.colors.success },
 };
 
-const formatDate = (value: string) => value;
+const formatDate = (value: string) => toDateOnly(value);
 
-const formatCount = (value: number) => value.toLocaleString('en-US');
-
-const displayFollowerName = (firstName: string, lastName: string, username: string) =>
-  [lastName, firstName].filter(Boolean).join('') || username;
-
-const FieldRow = ({ label, value }: { label: string; value: string }) => (
-  <Text style={styles.fieldRow} numberOfLines={1}>
-    <Text style={styles.fieldLabel}>{label}：</Text>
-    <Text style={styles.fieldValue}>{value}</Text>
-  </Text>
-);
+/** summary：卡片主信息区；detail：展开后的补充信息区 */
+const FieldRow = ({
+  label,
+  value,
+  variant = 'summary',
+  align = 'left',
+}: {
+  label: string;
+  value: string;
+  variant?: 'summary' | 'detail';
+  align?: 'left' | 'right';
+}) => {
+  const detail = variant === 'detail';
+  return (
+    <Text
+      style={[styles.fieldRow, align === 'right' ? styles.fieldRowRight : null]}
+      numberOfLines={1}
+    >
+      <Text style={detail ? styles.detailLabel : styles.fieldLabel}>{label}：</Text>
+      <Text style={detail ? styles.detailValue : styles.fieldValue}>{value}</Text>
+    </Text>
+  );
+};
 
 export const ProductionOrderCard = memo(function ProductionOrderCard({
   order,
+  showOverdueBadge = false,
+  categoryLabel,
   expanded,
   onToggleExpand,
   onColorPress,
 }: ProductionOrderCardProps) {
-  const accent = order.overdue ? OVERDUE_BADGE_COLOR : ORDER_ACCENT[order.status];
-  const badgeColor = order.overdue ? OVERDUE_BADGE_COLOR : ORDER_STATUS_BADGE[order.status];
-  const badgeLabel = order.overdue ? '超期' : ORDER_STATUS_LABEL[order.status];
+  const { colors } = useAppTheme();
+  const showOverdue = showOverdueBadge && order.overdue;
+  const badgeColor = showOverdue ? OVERDUE_BADGE_COLOR : ORDER_STATUS_BADGE[order.status];
+  const badgeLabel = showOverdue ? '超期' : ORDER_STATUS_LABEL[order.status];
   const { representative } = order;
   const cpo = representative.customerPurchaseOrder;
-  const thumbnailUrl = representative.templateDesign.designImageUrls[0];
-  const merchandiser = displayFollowerName(
-    cpo.productionFollower.firstName,
-    cpo.productionFollower.lastName,
-    cpo.productionFollower.username,
-  );
+  const thumbnailUrl = representative.template?.frontImages?.[0]?.url;
+  const merchandiser = formatUserName(cpo.productionFollower);
+  const categoryText = categoryLabel ?? representative.templateDesign.category;
 
   return (
     <View style={styles.card}>
@@ -97,29 +111,31 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
       </View>
 
       <View style={styles.header}>
-        <View style={[styles.accent, { backgroundColor: accent }]} />
+        <View style={[styles.accent, { backgroundColor: colors.primary }]} />
         <View style={styles.headerMain}>
           <Text style={styles.title} numberOfLines={1}>
             {cpo.productCode}
           </Text>
-          <Text style={styles.category} numberOfLines={1}>
-            {representative.templateDesign.category}
-          </Text>
+          {categoryText ? (
+            <Text style={styles.category} numberOfLines={1}>
+              {categoryText}
+            </Text>
+          ) : null}
         </View>
         <Text style={styles.summary} numberOfLines={1}>
           {order.colorCount}色 | 总量:{formatCount(order.totalQty)}件
         </Text>
       </View>
 
+      <View style={styles.headerDivider} />
+
       <View style={styles.body}>
         <View style={styles.summaryBlock}>
-          <Image source={resolveReceivingImage(thumbnailUrl)} style={styles.thumbnail} />
+          <OrderInfoThumbnail fit="contain" height={80} imageKey={thumbnailUrl} width={80} />
           <View style={styles.summaryInfo}>
             <FieldRow label="客户PO" value={cpo.customerPO} />
             <FieldRow label="最后交期" value={formatDate(order.lastDeliveryDate)} />
-            <View style={styles.brandTag}>
-              <Text style={styles.brandTagText}>品牌 {cpo.brand.name}</Text>
-            </View>
+            <BrandBadge name={cpo.brand.name} />
             {!expanded ? (
               <Pressable
                 accessibilityRole="button"
@@ -129,7 +145,7 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
               >
                 <Text style={styles.toggleText}>展开</Text>
                 <ChevronRightIcon
-                  color="#105FC8"
+                  color={designTokens.colors.brand[500]}
                   height={12}
                   width={12}
                   style={styles.toggleIconDown}
@@ -142,18 +158,32 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
         {expanded ? (
           <>
             <View style={styles.expanded}>
-              <FieldRow label="设计款号" value={cpo.code} />
-              <FieldRow label="客户款号" value={representative.templateDesign.customerCode} />
-              <FieldRow label="生产单号" value={order.productionOrderCode} />
+              <FieldRow label="设计款号" value={cpo.code} variant="detail" />
+              <FieldRow
+                label="客户款号"
+                value={
+                  representative.templateDesign.customerCode.trim()
+                    ? representative.templateDesign.customerCode
+                    : '-'
+                }
+                variant="detail"
+              />
+              <FieldRow label="生产单号" value={order.productionOrderCode} variant="detail" />
+              <View style={styles.expandedDivider} />
               <View style={styles.twoCol}>
                 <View style={styles.twoColItem}>
-                  <FieldRow label="订单类型" value={representative.orderType} />
+                  <FieldRow label="订单类型" value={representative.orderType} variant="detail" />
                 </View>
                 <View style={styles.twoColItem}>
-                  <FieldRow label="加工方式" value={representative.productionType} />
+                  <FieldRow
+                    align="right"
+                    label="加工方式"
+                    value={representative.productionType}
+                    variant="detail"
+                  />
                 </View>
               </View>
-              <FieldRow label="跟单员" value={merchandiser} />
+              <FieldRow label="跟单员" value={merchandiser} variant="detail" />
             </View>
             <Pressable
               accessibilityRole="button"
@@ -163,7 +193,7 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
             >
               <Text style={styles.toggleText}>收起</Text>
               <ChevronRightIcon
-                color="#105FC8"
+                color={designTokens.colors.brand[500]}
                 height={12}
                 width={12}
                 style={styles.toggleIconUp}
@@ -177,9 +207,14 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
             const progress = mapProductionStatusToProgress(item.status);
             return (
               <Pressable
-                key={item.id}
+                key={`${order.productionOrderCode}::${item.color}`}
                 accessibilityRole="button"
-                onPress={() => onColorPress(String(item.id))}
+                onPress={() =>
+                  onColorPress({
+                    productionOrderCode: order.productionOrderCode,
+                    color: item.color,
+                  })
+                }
                 style={styles.colorRow}
               >
                 <View style={styles.colorContent}>
@@ -210,7 +245,7 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     borderRadius: 18,
     overflow: 'hidden',
     position: 'relative',
@@ -228,7 +263,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 12,
     fontWeight: '500',
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
     includeFontPadding: false,
     paddingTop: 4,
     paddingBottom: 4,
@@ -238,24 +273,27 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 14,
+    paddingTop: 12,
     paddingRight: 12,
-    paddingBottom: 10,
     gap: 8,
   },
   accent: {
     width: 4,
-    height: 18,
-    borderRadius: 2,
-    marginLeft: 12,
+    height: 20,
+  },
+  headerDivider: {
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderBottomWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#BCD4F4',
   },
   headerMain: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
   },
   title: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#021626',
   },
@@ -277,12 +315,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  thumbnail: {
-    width: 72,
-    height: 96,
-    borderRadius: 4,
-    backgroundColor: '#EEF3FA',
-  },
   summaryInfo: {
     flex: 1,
     minWidth: 0,
@@ -292,26 +324,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  fieldRowRight: {
+    textAlign: 'right',
+  },
   fieldLabel: {
     fontSize: 15,
-    color: '#7A869A',
+    color: '#0C2A52',
   },
   fieldValue: {
     fontSize: 15,
-    color: '#3D4F66',
+    color: '#50637B',
   },
-  brandTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F3E0CC',
-    borderRadius: 2,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  detailLabel: {
+    fontSize: 14,
+    color: '#6C829E',
   },
-  brandTagText: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#C47A3A',
-    fontWeight: '600',
+  detailValue: {
+    fontSize: 14,
+    color: '#6C829E',
   },
   toggle: {
     alignSelf: 'flex-start',
@@ -328,7 +358,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 13,
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
   },
   toggleIconDown: {
     transform: [{ rotate: '90deg' }],
@@ -341,6 +371,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5FAFF',
     borderRadius: 8,
     padding: 12,
+  },
+  expandedDivider: {
+    borderBottomWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E5',
   },
   twoCol: {
     flexDirection: 'row',

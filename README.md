@@ -130,12 +130,12 @@ android/app/build/outputs/apk/release/app-release.apk
 
 ### Release 签名
 
-- 当前仓库直接跟踪 `android/keystore.properties` 和 `android/app/apex-app-release.jks`
+- 当前仓库直接跟踪 `android/keystore.properties` 和 `android/app/supplier-app-release.jks`
 - `android/keystore.properties` 只保存 `storeFile` 和 `keyAlias`
 - `storePassword`、`keyPassword` 不进仓库，改为从 `android/keystore.local.properties` 或环境变量读取
-- 默认 `storeFile` 指向 `android/app/apex-app-release.jks`
+- 默认 `storeFile` 指向 `android/app/supplier-app-release.jks`，`keyAlias` 为 `supplier-app`
 - 本地打 release 包前，先把 PMS 里的密码填到 `android/keystore.local.properties`
-- 如果后续要更换签名，需要同时更新 `android/keystore.properties`、`android/app/apex-app-release.jks` 和 PMS 里的密码记录
+- 如果后续要更换签名，需要同时更新 `android/keystore.properties`、`android/app/supplier-app-release.jks` 和 PMS 里的密码记录
 
 ## 常用脚本
 

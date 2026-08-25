@@ -1,6 +1,14 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { type ReactNode, useCallback } from 'react';
-import { ImageBackground, Platform, StatusBar, StyleSheet, View } from 'react-native';
+import {
+  ImageBackground,
+  Keyboard,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { authLoginBackgroundImage } from '@/components/images';
@@ -51,7 +59,9 @@ export const LoginShell = ({ children }: LoginShellProps) => {
         source={authLoginBackgroundImage}
         style={StyleSheet.absoluteFill}
       />
-      <View
+      <Pressable
+        accessible={false}
+        onPress={Keyboard.dismiss}
         style={[
           styles.content,
           {
@@ -61,7 +71,7 @@ export const LoginShell = ({ children }: LoginShellProps) => {
         ]}
       >
         {children}
-      </View>
+      </Pressable>
     </View>
   );
 };

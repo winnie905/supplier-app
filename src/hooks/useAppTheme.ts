@@ -1,9 +1,9 @@
-import { useColorMode, useTheme } from 'design-system-native';
+import { designTokens, useColorMode, useTheme } from 'design-system-native';
 import { useMemo } from 'react';
 
 const APP_COLOR_OVERRIDES = {
   text: '#182A43',
-  primary: '#105FC8',
+  primary: designTokens.colors.brand[500],
 } as const;
 
 export const useAppTheme = () => {

@@ -17,13 +17,19 @@ export const useSelectedProductionColor = () => {
   const [data, setData] = useState<ProductionColorSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (options?: { silent?: boolean; force?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     try {
-      const result = await receivingService.getSelectedProductionColor();
+      const result = await receivingService.getSelectedProductionColor({
+        ...(options?.force ? { force: true } : {}),
+      });
       setData(result);
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, []);
 

@@ -14,8 +14,8 @@ export const PANEL_IMAGE_OVERLAP = 18;
 export const TAB_FLOAT_BOTTOM_GAP = 16;
 export const TAB_CLEARANCE_BUFFER = 8;
 
-export const TWO_ENTRIES_PANEL_HEIGHT =
-  PANEL_HANDLE_HEIGHT + 2 * ENTRY_ITEM_HEIGHT + ENTRY_GAP + PANEL_BOTTOM_PADDING;
+/** 最低位：手柄 + 半个物料齐套确认入口 */
+export const HALF_ENTRY_PANEL_HEIGHT = PANEL_HANDLE_HEIGHT + ENTRY_ITEM_HEIGHT / 2;
 export const FOUR_ENTRIES_PANEL_HEIGHT =
   PANEL_HANDLE_HEIGHT + 4 * ENTRY_ITEM_HEIGHT + 3 * ENTRY_GAP + PANEL_BOTTOM_PADDING;
 
@@ -42,17 +42,20 @@ export interface PanelLayoutMetrics {
  * @param imageNaturalHeight 样品图按屏宽 contain 时的自然高度
  *
  * 小图：完整展示图片 + 4 个入口，面板填满剩余高度，不可滑动
- * 大图：默认展示 4 个完整入口；下滑最低保留 2 个完整入口，二者均不遮挡 Tab
+ * 大图：默认展示 4 个完整入口；下滑最低露出半个物料齐套确认入口，二者均不遮挡 Tab
+ * 任意位置（含最低点）面板上圆角都必须叠在图片上（PANEL_IMAGE_OVERLAP）
  */
 export const calcSelectedPanelLayout = (
   usableContentHeight: number,
   imageNaturalHeight: number,
 ): PanelLayoutMetrics => {
   const panelTopForFourEntries = usableContentHeight - FOUR_ENTRIES_PANEL_HEIGHT;
-  const panelTopForTwoEntries = usableContentHeight - TWO_ENTRIES_PANEL_HEIGHT;
+  const panelTopForHalfEntry = usableContentHeight - HALF_ENTRY_PANEL_HEIGHT;
+  /** 面板再往下会离开图片，圆角无法压在图上 */
+  const imageAnchoredTop = Math.max(0, imageNaturalHeight - PANEL_IMAGE_OVERLAP);
 
   if (imageNaturalHeight + FOUR_ENTRIES_PANEL_HEIGHT <= usableContentHeight) {
-    const panelTop = Math.max(0, imageNaturalHeight - PANEL_IMAGE_OVERLAP);
+    const panelTop = imageAnchoredTop;
     return {
       defaultPanelTop: panelTop,
       minPanelTop: panelTop,
@@ -61,10 +64,14 @@ export const calcSelectedPanelLayout = (
     };
   }
 
+  const minPanelTop = panelTopForFourEntries;
+  // 最低点不得超过图片锚点，保证圆角始终压在主图上
+  const maxPanelTop = Math.max(minPanelTop, Math.min(panelTopForHalfEntry, imageAnchoredTop));
+
   return {
-    defaultPanelTop: panelTopForFourEntries,
-    minPanelTop: panelTopForFourEntries,
-    maxPanelTop: panelTopForTwoEntries,
-    canSlide: panelTopForFourEntries < panelTopForTwoEntries - 1,
+    defaultPanelTop: minPanelTop,
+    minPanelTop,
+    maxPanelTop,
+    canSlide: minPanelTop < maxPanelTop - 1,
   };
 };

@@ -1,14 +1,9 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, SafeAreaHeader, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import CloseIcon from '@/assets/icons/close.svg';
 import SearchNoticeIcon from '@/assets/icons/searchNotice.svg';
-import { SafeAreaHeader } from '@/components/SafeAreaHeader';
-import { SearchEntryBar } from '@/components/SearchEntryBar';
-
-/** @deprecated 请优先使用 SearchEntryBar；保留别名以兼容收发首页 */
-export const ReceivingHomeSearchBar = SearchEntryBar;
 
 export const ReceivingHomePopover = ({ onClose }: { onClose: () => void }) => (
   <View style={popoverStyles.wrap}>
@@ -26,7 +21,7 @@ export const ReceivingHomePopover = ({ onClose }: { onClose: () => void }) => (
           onPress={onClose}
           style={popoverStyles.closeBtn}
         >
-          <CloseIcon color="#FFFFFF" height={14} width={14} />
+          <CloseIcon color={designTokens.colors.gray[0]} height={14} width={14} />
         </Pressable>
       </View>
     </View>
@@ -103,7 +98,7 @@ const popoverStyles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
 });
 

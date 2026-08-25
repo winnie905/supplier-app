@@ -1,4 +1,11 @@
-import { HStack, Pressable, Text, VStack } from 'design-system-native';
+import {
+  designTokens,
+  HStack,
+  Pressable,
+  SafeAreaHeader,
+  Text,
+  VStack,
+} from 'design-system-native';
 import { memo, type ReactNode, useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, Image, type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -18,7 +25,6 @@ import FlashlightIcon from '@/assets/icons/flashlight.svg';
 import PhotographIcon from '@/assets/icons/photograph.svg';
 import WhiteBackIcon from '@/assets/icons/white_back.svg';
 import { qrCodeScanImage } from '@/components/images';
-import { SafeAreaHeader } from '@/components/SafeAreaHeader';
 import { getSafeAreaTopInset, STACK_HEADER_TOOLBAR_HEIGHT } from '@/utils/app';
 
 export interface QrScanCameraOptions {
@@ -370,7 +376,7 @@ export const QrScanCameraLayer = memo(
               {backIconVariant === 'white' ? (
                 <BackButtonIcon style={{ width: 24, height: 24 }} />
               ) : (
-                <BackButtonIcon width={20} height={20} color="#FFFFFF" />
+                <BackButtonIcon width={20} height={20} color={designTokens.colors.gray[0]} />
               )}
             </Pressable>
           </SafeAreaHeader>

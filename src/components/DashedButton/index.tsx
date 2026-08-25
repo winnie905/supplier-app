@@ -1,4 +1,4 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet } from 'react-native';
@@ -24,8 +24,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#105FC8',
-    backgroundColor: '#F5F9FF',
+    borderColor: designTokens.colors.brand[500],
+    backgroundColor: '#ECF4FF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontWeight: '600',
   },
 });

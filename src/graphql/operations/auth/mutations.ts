@@ -60,4 +60,3 @@ export const UPDATE_QRCODE_STATUS_MUTATION = gql`
     }
   }
 `;
-

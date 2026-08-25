@@ -1,4 +1,4 @@
-import { Checkbox, CheckboxIndicator, CheckIcon, Text } from 'design-system-native';
+import { Checkbox, CheckboxIndicator, CheckIcon, designTokens, Text } from 'design-system-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
@@ -35,11 +35,13 @@ export const LoginAgreementSection = ({
             height: 16,
             borderRadius: 10,
             borderWidth: agreed ? 0 : 1,
-            borderColor: '#DADEE5',
+            borderColor: designTokens.colors.gray[200],
             backgroundColor: agreed ? colors.primary : '#fff',
           }}
         >
-          {agreed && <CheckIcon width={12} height={12} color="#FFFFFF" strokeWidth={3} />}
+          {agreed && (
+            <CheckIcon width={12} height={12} color={designTokens.colors.gray[0]} strokeWidth={3} />
+          )}
         </CheckboxIndicator>
       </Checkbox>
       <View style={styles.textWrap}>

@@ -14,7 +14,7 @@ type PrivacyPolicyPageProps = NativeStackScreenProps<
 
 /**
  * 隐私政策全文（后端 HTML 富文本）。
- * 清单页入口保留，供后续在富文本中通过链接扩展；当前 mock HTML 自含表格说明。
+ * 清单页入口保留，供后续在富文本中通过链接扩展。
  */
 export const PrivacyPolicyPage = ({ navigation: _navigation }: PrivacyPolicyPageProps) => {
   const { colors } = useAppTheme();

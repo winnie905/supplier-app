@@ -1,4 +1,4 @@
-import { type TableColumn, type TableProps, Text } from 'design-system-native';
+import { designTokens, type TableColumn, type TableProps, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
 import { ScrollView, type StyleProp, StyleSheet, type TextStyle, View } from 'react-native';
 
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: TABLE_HEADER_BACKGROUND,
   },
   bodyCell: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
   },
   lastColumn: {
     borderRightWidth: 0,

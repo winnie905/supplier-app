@@ -7,6 +7,7 @@ import {
   logout,
 } from '@/services/auth/authService';
 import { getAssetHost } from '@/services/config/configService';
+import { useRuntimeConfigStore } from '@/store/runtimeConfigStore';
 import type { ActiveRefreshAccessToken, AuthState, AuthUser, SignOutOptions } from '@/types';
 import {
   clearSession,
@@ -55,7 +56,7 @@ const nextAuthGeneration = () => {
   return authGeneration;
 };
 
-const getAuthGeneration = () => authGeneration;
+export const getAuthGeneration = () => authGeneration;
 
 const isSameAuthGeneration = (generation: number) => generation === authGeneration;
 
@@ -73,6 +74,12 @@ interface CommitSessionOptions {
    * 用于防止旧异步任务在用户退出登录后重新写入旧 session。
    */
   shouldCommit?: AuthFlowGuard;
+
+  /**
+   * 是否把当前会话激活为已登录（切业务导航、启动轮询）。
+   * 登录换票期间必须为 false，避免用临时 token 先打开业务页。
+   */
+  activateSession?: boolean;
 }
 
 const canCommitAuthState = (shouldCommit?: AuthFlowGuard) => !shouldCommit || shouldCommit();
@@ -109,7 +116,7 @@ const createCurrentAuthFlowGuard = (): AuthFlowGuard => {
 };
 
 let activeSignOut: Promise<void> | null = null;
-let activeKickedOfflineHandling: Promise<void> | null = null;
+let activeSessionExpiredHandling: Promise<void> | null = null;
 let activeRefreshAccessToken: ActiveRefreshAccessToken | null = null;
 
 export const useAuthStore = create<AuthState>((set, get) => {
@@ -141,6 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
    */
   const bootstrapAuthenticatedResources = async () => {
     try {
+      await useRuntimeConfigStore.getState().restoreRuntimeConfig();
       await getAssetHost();
     } catch (error) {
       console.error('bootstrapAuthenticatedResources error:', error);
@@ -206,14 +214,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
     if (!canCommitAuthState(options?.shouldCommit)) {
       return false;
     }
-    set({
-      isSignedIn: Boolean(session.token),
-      user: session.user ?? null,
-    });
 
-    if (session.expiredAt) {
-      scheduleTokenRefresh(session.expiredAt);
+    const activateSession = options?.activateSession !== false;
+
+    if (activateSession) {
+      set({
+        isSignedIn: Boolean(session.token),
+        user: session.user ?? null,
+      });
+
+      if (session.expiredAt) {
+        scheduleTokenRefresh(session.expiredAt);
+      }
     }
+
     if (!canCommitAuthState(options?.shouldCommit)) {
       return false;
     }
@@ -296,6 +310,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
   /**
    * 使用 refreshToken 换新的 accessToken。
+   * 换票只更新 token 字段；保留期间可能已被 syncProfile 写入的最新 user（含 supplier）。
    */
   const refreshAccessToken = async (
     session?: StoredSession,
@@ -307,9 +322,15 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return nextSession;
     }
 
-    commitSession(nextSession, options);
+    const latest = await getSession();
+    const mergedSession: StoredSession = {
+      ...nextSession,
+      user: latest?.user ?? get().user ?? nextSession.user ?? null,
+    };
 
-    return nextSession;
+    commitSession(mergedSession, options);
+
+    return mergedSession;
   };
 
   /**
@@ -339,7 +360,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
 
       if (isUnauthorizedGraphQLError(error)) {
-        await get().signOut();
+        await get().handleSessionExpired({
+          reason: 'expired',
+          skipLogoutRequest: true,
+        });
         return;
       }
 
@@ -370,38 +394,42 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return message;
     },
 
-    handleSessionKickedOffline: async (message?: string) => {
+    handleSessionExpired: async (options) => {
       if (get().isHandlingSessionExpired) {
-        if (activeKickedOfflineHandling) {
-          return activeKickedOfflineHandling;
+        if (activeSessionExpiredHandling) {
+          return activeSessionExpiredHandling;
         }
         return;
       }
 
-      const trimmedMessage = message?.trim();
-      const resolvedMessage =
-        trimmedMessage && trimmedMessage.length > 0
-          ? trimmedMessage
-          : DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE;
+      const reason = options?.reason ?? 'expired';
 
       set({
         isHandlingSessionExpired: true,
-        sessionExpiredMessage: resolvedMessage,
-        logoutReason: 'kickedOffline',
+        sessionExpiredMessage: DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE,
+        logoutReason: reason,
       });
 
       stopSessionPolling();
 
-      activeKickedOfflineHandling = get()
+      activeSessionExpiredHandling = get()
         .signOut({
-          skipLogoutRequest: true,
-          reason: 'kickedOffline',
+          skipLogoutRequest: options?.skipLogoutRequest ?? true,
+          reason,
         })
         .finally(() => {
-          activeKickedOfflineHandling = null;
+          activeSessionExpiredHandling = null;
         });
 
-      return activeKickedOfflineHandling;
+      return activeSessionExpiredHandling;
+    },
+
+    handleSessionKickedOffline: async (message?: string) => {
+      return get().handleSessionExpired({
+        ...(message ? { message } : {}),
+        reason: 'kickedOffline',
+        skipLogoutRequest: true,
+      });
     },
     /**
      * 获取当前用户信息。
@@ -520,31 +548,32 @@ export const useAuthStore = create<AuthState>((set, get) => {
     /**
      * 登录。
      *
-     * 登录接口返回的 session 通常包含 refreshToken。
-     * 这里先提交一次临时 session，再使用 refreshToken 换取正式 accessToken。
-     *
-     * 关键点：
-     * signIn 自身也是异步链路。如果登录过程中用户退出登录，
-     * 后续 refreshAccessToken / syncProfile 不能再提交旧 session。
+     * 登录接口返回的是临时 accessToken + refreshToken。
+     * 必须先换到正式 accessToken，再 commit / 置 isSignedIn。
+     * 若先用临时 token 切回业务页，页面会立刻发请求；换票成功后旧 token
+     * 失效，这些在途请求会 401，刚登入又被挤下线。
      */
     signIn: async (session: StoredSession) => {
       const shouldCommit = createNewAuthFlowGuard();
 
-      set({ isLoading: true });
+      set({
+        isLoading: true,
+        sessionExpiredMessage: null,
+        isHandlingSessionExpired: false,
+        logoutReason: null,
+      });
 
       try {
-        const committed = commitSession(session, {
-          persist: false,
-          shouldCommit,
-        });
-
-        if (!committed || !shouldCommit()) {
+        if (!shouldCommit()) {
           return;
         }
+
+        setSessionCache(session);
 
         const nextSession = await refreshAccessToken(session, {
           persist: false,
           shouldCommit,
+          activateSession: false,
         });
 
         if (!shouldCommit()) {
@@ -554,6 +583,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await syncProfile(nextSession, {
           persist: false,
           shouldCommit,
+          activateSession: false,
         });
 
         if (!shouldCommit()) {
@@ -567,7 +597,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         }
 
         if (cachedSession) {
-          persistSession(cachedSession);
+          commitSession(cachedSession, { shouldCommit });
         }
 
         if (shouldCommit()) {

@@ -1,6 +1,4 @@
 /** image 子模块 barrel：仅做重导出，不放置具体实现。 */
-export type { BlurEstimateResult } from './blurEstimate';
-export { estimateImageBlurFast } from './blurEstimate';
 export type { ContainScaleLayout } from './layout';
 export {
   computeContainScaleLayout,

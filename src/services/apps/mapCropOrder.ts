@@ -1,4 +1,11 @@
-import { toSizeQuantities } from '@/services/apps/mapWorkshopSizes';
+import {
+  isLocalRecordId,
+  planSizeNames,
+  sumCropQuantity,
+  sumProcessQuantity,
+  toCropSizeRange,
+  toSizeQuantities,
+} from '@/services/apps/mapWorkshopSizes';
 import type { CropOrder, CropProcess, WorkshopProductionOrderRef } from '@/types/cropOrder';
 import type { CuttingBedRecord, CuttingRecordsData } from '@/types/receiving';
 
@@ -15,7 +22,8 @@ export const mapCropOrderToCuttingRecords = (
   );
 
   const beds: CuttingBedRecord[] = processes.map((process, index) => ({
-    id: process.id,
+    // 无后端 id 时给本地稳定 key，提交时不会回传给接口
+    id: process.id ?? `local-${index}-${process.cropDate ?? 'new'}`,
     bedNo: index + 1,
     bundleCount: process.parameter ?? 0,
     sizeQuantities: toSizeQuantities(process),
@@ -23,10 +31,10 @@ export const mapCropOrderToCuttingRecords = (
     ...(process.cropDate ? { submittedAt: process.cropDate } : {}),
   }));
 
-  const planSizes =
-    order.productionOrder?.customerPurchaseOrder?.sizeRange?.map((item) => item.name) ??
-    beds[0]?.sizeQuantities.map((item) => item.size) ??
-    [];
+  const planSizes = planSizeNames(
+    order.productionOrder?.customerPurchaseOrder?.sizeRange?.map((item) => item.name),
+    beds[0]?.sizeQuantities.map((item) => item.size),
+  );
 
   return {
     productionColorId,
@@ -38,42 +46,46 @@ export const mapCropOrderToCuttingRecords = (
 
 /** CuttingBedRecord → CropProcess（提交/更新裁床单时用） */
 export const mapCuttingBedToCropProcess = (bed: CuttingBedRecord): CropProcess => {
-  const sizeRange = bed.sizeQuantities.map((item) => ({
-    name: item.size,
-    cropQuantity: item.quantity,
-  }));
-  const totalQuantity = sizeRange.reduce((sum, item) => sum + (item.cropQuantity ?? 0), 0);
+  const sizeRange = toCropSizeRange(bed.sizeQuantities);
+  const totalQuantity = sumCropQuantity(sizeRange);
 
   return {
-    id: bed.id,
+    ...(isLocalRecordId(bed.id) ? {} : { id: bed.id }),
     ...(bed.submittedAt ? { cropDate: bed.submittedAt } : {}),
-    type: 'machine',
+    type: 'Machine',
     parameter: bed.bundleCount,
     sizeRange,
     totalQuantity,
   };
 };
 
-/** 由已提交床次组装裁床单写入体（create / update） */
+/**
+ * 由已提交床次组装裁床单写入体（create / update）。
+ * productionOrder 优先用已有裁床单上的，其次用本次传入的生产单摘要。
+ * create 不传 id（由后端生成）；update 只用已有裁床单 id，绝不用生产单 id。
+ */
 export const buildCropOrderPayload = (params: {
   existing: CropOrder | null;
-  orderId: number;
   beds: CuttingBedRecord[];
   productionOrder?: WorkshopProductionOrderRef;
 }): CropOrder => {
   const submitted = [...params.beds]
     .filter((bed) => bed.submitted)
     .sort((a, b) => a.bedNo - b.bedNo);
+  const cropProcesses = submitted.map(mapCuttingBedToCropProcess);
+  const cropTotal = sumProcessQuantity(cropProcesses);
+  // 优先用本次从生产单详情组装的入参（含 schema 必填占位）；已有裁床单回传作兜底
+  const productionOrder = params.productionOrder ?? params.existing?.productionOrder;
+  const cropOrderId = params.existing?.id;
 
   return {
-    id: params.existing?.id && params.existing.id > 0 ? params.existing.id : params.orderId,
-    status: params.existing?.status ?? 'InProgress',
-    cropOrderType: 'CROP_ORDER',
-    ...((params.existing?.productionOrder ?? params.productionOrder)
-      ? { productionOrder: params.existing?.productionOrder ?? params.productionOrder }
-      : {}),
+    ...(cropOrderId != null && cropOrderId > 0 ? { id: cropOrderId } : {}),
+    status: params.existing?.status ?? 'Pending',
+    cropOrderType: 'CropOrder',
+    ...(productionOrder ? { productionOrder } : {}),
     cropOrderStorage: {
-      cropProcesses: submitted.map(mapCuttingBedToCropProcess),
+      cropProcesses,
+      cropTotal,
     },
   };
 };

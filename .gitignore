@@ -34,7 +34,7 @@ local.properties
 *.keystore
 *.jks
 !debug.keystore
-!android/app/apex-app-release.jks
+!android/app/supplier-app-release.jks
 .kotlin/
 android/keystore.local.properties
 

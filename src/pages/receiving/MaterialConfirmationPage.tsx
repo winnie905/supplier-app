@@ -1,31 +1,23 @@
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { designTokens, useToast } from 'design-system-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { useToast } from '@/components/toast/Toast';
-import { MATERIAL_EXCEPTION_TYPES } from '@/constants/receiving';
+import { EMPTY_FORM_SUBMIT_MESSAGE, MATERIAL_EXCEPTION_TYPES } from '@/constants/receiving';
 import { useDebouncedSubmit } from '@/hooks/receiving/useDebouncedSubmit';
 import {
   ExceptionReportButton,
   useExceptionReportChrome,
 } from '@/hooks/receiving/useExceptionReportChrome';
 import { useMaterialConfirmation, useProductionColorDetail } from '@/hooks/receiving/useReceiving';
+import { useStickyCategoryTabs } from '@/hooks/receiving/useStickyCategoryTabs';
 import type { LogisticsScreenProps } from '@/navigation/types';
 import { MaterialCategorySection } from '@/sections/receiving/material/MaterialCategorySection';
 import { CircleCheck } from '@/sections/receiving/material/MaterialItemRow';
 import {
   AlignedReceivingBackdrop,
   PROGRESS_PANEL_RADIUS,
+  ProgressPanelBorder,
   ProgressPanelChrome,
 } from '@/sections/receiving/material/MaterialProgressChrome';
 import { MaterialTabBar } from '@/sections/receiving/material/MaterialTabBar';
@@ -34,6 +26,8 @@ import { ReceivingExceptionSheet } from '@/sections/receiving/ReceivingException
 import { ReceivingOrderInfoCard } from '@/sections/receiving/ReceivingOrderInfoCard';
 import { receivingService } from '@/services/receiving/receivingService';
 import type { MaterialCategory, MaterialItem } from '@/types/receiving';
+import { formatPendingExceptionTypesByItemId } from '@/utils/receiving/exceptions';
+import { submitExceptionReport } from '@/utils/receiving/submitExceptionReport';
 
 type MaterialConfirmationPageProps = LogisticsScreenProps<'MaterialConfirmation'>;
 
@@ -45,16 +39,27 @@ const TAB_LABELS: Record<MaterialCategory, string> = {
   data_package: '资料包',
 };
 
+/** 面辅料下主料/里料合并为一个小标题 */
+const FABRIC_MERGED_GROUP_TITLE = '主料/里料';
+const FABRIC_MERGE_GROUP_NAMES = new Set(['主料', '里料']);
+
+const resolveMaterialGroupKey = (category: MaterialCategory, groupName: string) => {
+  if (category === 'fabric' && FABRIC_MERGE_GROUP_NAMES.has(groupName.trim())) {
+    return FABRIC_MERGED_GROUP_TITLE;
+  }
+  return groupName;
+};
+
 export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirmationPageProps) => {
   const { productionColorId } = route.params;
   const headerHeight = useHeaderHeight();
   const { height: screenHeight } = useWindowDimensions();
-  const { showToast } = useToast();
+  const toast = useToast();
   const runSubmit = useDebouncedSubmit();
   const { detail, refresh: refreshDetail } = useProductionColorDetail(productionColorId);
   const { data, refresh } = useMaterialConfirmation(productionColorId);
   const {
-    cornerTag,
+    exceptions,
     exceptionVisible,
     exceptionTypes,
     setExceptionTypes,
@@ -70,23 +75,29 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
     module: 'material',
     allowedTypes: MATERIAL_EXCEPTION_TYPES,
   });
-  const [activeTab, setActiveTab] = useState<MaterialCategory>('fabric');
+  const exceptionLabelByItemId = useMemo(
+    () => formatPendingExceptionTypesByItemId(exceptions, MATERIAL_EXCEPTION_TYPES),
+    [exceptions],
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [progressLeadSize, setProgressLeadSize] = useState({ width: 0, height: 0 });
-  const [tabPinned, setTabPinned] = useState(false);
+  const [progressPanelSize, setProgressPanelSize] = useState({ width: 0, height: 0 });
 
-  const scrollRef = useRef<ScrollView>(null);
-  const sectionLocalY = useRef<Partial<Record<MaterialCategory, number>>>({});
-  const progressContainerYRef = useRef(0);
-  const tabBarLocalYRef = useRef(0);
-  const sectionsWrapLocalYRef = useRef(0);
-  const tabBarYRef = useRef(0);
-  const tabBarHeightRef = useRef(0);
-  const scrollingToTab = useRef(false);
-
-  const syncTabBarContentY = () => {
-    tabBarYRef.current = progressContainerYRef.current + tabBarLocalYRef.current;
-  };
+  const {
+    scrollRef,
+    activeTab,
+    tabPinned,
+    onContainerLayout,
+    onTabBarLayout,
+    onSectionsWrapLayout,
+    onSectionLayout,
+    scrollToCategory,
+    onScroll,
+    endProgrammaticTabScroll,
+  } = useStickyCategoryTabs<MaterialCategory>({
+    categories: TAB_ORDER,
+    initialCategory: 'fabric',
+  });
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
 
@@ -104,9 +115,10 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
       const categoryItems = items.filter((item) => item.category === category);
       const groups = new Map<string, MaterialItem[]>();
       categoryItems.forEach((item) => {
-        const list = groups.get(item.groupName) ?? [];
+        const groupKey = resolveMaterialGroupKey(category, item.groupName);
+        const list = groups.get(groupKey) ?? [];
         list.push(item);
-        groups.set(item.groupName, list);
+        groups.set(groupKey, list);
       });
       return {
         category,
@@ -154,10 +166,18 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
     }
   }, [allSelected, selectableIds]);
 
+  const handleOpenExceptionSheet = () => {
+    if (selectedIds.length === 0) {
+      toast.show({ title: EMPTY_FORM_SUBMIT_MESSAGE, duration: 3000 });
+      return;
+    }
+    openExceptionSheet();
+  };
+
   const handleConfirmArrival = () => {
     void runSubmit(async () => {
       if (selectedIds.length === 0) {
-        showToast('请先选择物料', { duration: 3000 });
+        toast.show({ title: '请先选择物料', duration: 3000 });
         return;
       }
       await receivingService.submitMaterialArrival(productionColorId, selectedIds);
@@ -165,80 +185,34 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
       await refresh();
       await refreshDetail();
       await refreshExceptions();
-      showToast('确认到料成功', { duration: 3000 });
+      toast.show({ title: '确认到料成功', duration: 3000 });
     });
   };
 
   const handleSubmitException = () => {
-    void runSubmit(async () => {
-      if (selectedIds.length === 0) {
-        showToast('请先选择物料', { duration: 3000 });
-        return;
-      }
-      if (exceptionTypes.length === 0) {
-        showToast('请选择异常类型', { duration: 3000 });
-        return;
-      }
-      await receivingService.submitMaterialException({
-        productionColorId,
-        itemIds: selectedIds,
-        type: exceptionTypes.join('、'),
-        description: exceptionDesc,
-      });
-      closeExceptionSheet();
-      resetExceptionForm();
-      setSelectedIds([]);
-      await refresh();
-      await refreshDetail();
-      await refreshExceptions();
-      showToast('异常已提交', { duration: 3000 });
-    });
-  };
-
-  const onSectionLayout = (category: MaterialCategory, event: LayoutChangeEvent) => {
-    sectionLocalY.current[category] = event.nativeEvent.layout.y;
-  };
-
-  const sectionContentY = (category: MaterialCategory) => {
-    const localY = sectionLocalY.current[category];
-    if (localY == null) return null;
-    return progressContainerYRef.current + sectionsWrapLocalYRef.current + localY;
-  };
-
-  const scrollToCategory = (category: MaterialCategory) => {
-    setActiveTab(category);
-    const sectionY = sectionContentY(category);
-    if (sectionY == null) return;
-    scrollingToTab.current = true;
-    // 至少滚到 Tab 吸附位置；再对齐到对应分区（分区顶在吸附 Tab 下方）
-    const target = Math.max(tabBarYRef.current, sectionY - tabBarHeightRef.current);
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, target),
-      animated: true,
-    });
-    setTabPinned(true);
-    setTimeout(() => {
-      scrollingToTab.current = false;
-    }, 360);
-  };
-
-  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const shouldPin = offsetY >= tabBarYRef.current;
-    setTabPinned((prev) => (prev === shouldPin ? prev : shouldPin));
-
-    if (scrollingToTab.current) return;
-    const y = offsetY + tabBarHeightRef.current + 8;
-    let current: MaterialCategory = 'fabric';
-    for (const key of TAB_ORDER) {
-      const offset = sectionContentY(key);
-      if (offset != null && y >= offset) {
-        current = key;
-      }
-    }
-    if (current !== activeTab) {
-      setActiveTab(current);
-    }
+    void runSubmit(() =>
+      submitExceptionReport({
+        exceptionTypes,
+        toast,
+        precheck: () => (selectedIds.length === 0 ? '请先选择物料' : null),
+        submit: async () => {
+          await receivingService.submitMaterialException({
+            productionColorId,
+            itemIds: selectedIds,
+            type: exceptionTypes.join('、'),
+            description: exceptionDesc,
+          });
+        },
+        closeExceptionSheet,
+        resetExceptionForm,
+        afterSuccess: async () => {
+          setSelectedIds([]);
+          await refresh();
+          await refreshDetail();
+          await refreshExceptions();
+        },
+      }),
+    );
   };
 
   if (!detail || !data) {
@@ -257,18 +231,24 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
         // 视口从 header 下方开始：上滑内容在 header 底边裁切消失，不会穿过透明 header
         style={[styles.scrollView, { marginTop: headerHeight }]}
         contentContainerStyle={styles.scroll}
-        onScroll={onScroll}
+        onScroll={(event) => onScroll(event, sections[0]?.category ?? 'fabric')}
+        onMomentumScrollEnd={endProgrammaticTabScroll}
         scrollEventThrottle={16}
       >
-        <ReceivingOrderInfoCard cornerTag={cornerTag} detail={detail} />
+        <ReceivingOrderInfoCard detail={detail} />
 
         <View
           style={styles.progressContainer}
           onLayout={(event) => {
-            progressContainerYRef.current = event.nativeEvent.layout.y;
-            syncTabBarContentY();
+            const { y, width, height } = event.nativeEvent.layout;
+            onContainerLayout(y);
+            setProgressPanelSize((prev) =>
+              prev.width === width && prev.height === height ? prev : { width, height },
+            );
           }}
         >
+          <ProgressPanelBorder width={progressPanelSize.width} height={progressPanelSize.height} />
+
           <View
             style={styles.progressLead}
             onLayout={(event) => {
@@ -295,21 +275,12 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
 
           <View
             style={[styles.tabBarSticky, tabPinned && styles.tabBarPlaceholder]}
-            onLayout={(event) => {
-              tabBarLocalYRef.current = event.nativeEvent.layout.y;
-              tabBarHeightRef.current = event.nativeEvent.layout.height;
-              syncTabBarContentY();
-            }}
+            onLayout={onTabBarLayout}
           >
             <MaterialTabBar tabs={tabItems} activeTab={activeTab} onTabPress={scrollToCategory} />
           </View>
 
-          <View
-            style={styles.sectionsWrap}
-            onLayout={(event) => {
-              sectionsWrapLocalYRef.current = event.nativeEvent.layout.y;
-            }}
-          >
+          <View style={styles.sectionsWrap} onLayout={onSectionsWrapLayout}>
             {sections.map((section) => {
               const sectionSelectable = section.ids.filter((id) => {
                 const item = items.find((x) => x.id === id);
@@ -327,6 +298,7 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
                   groups={section.groups}
                   sectionChecked={sectionChecked}
                   selectedIds={selectedIds}
+                  exceptionLabelByItemId={exceptionLabelByItemId}
                   onToggleSection={() => toggleSection(section.ids)}
                   onToggleItem={toggleSelect}
                   onLayout={(event) => onSectionLayout(section.category, event)}
@@ -351,7 +323,9 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
             <Text style={styles.selectAllText}>全选</Text>
           </Pressable>
         }
-        center={<ExceptionReportButton onPress={openExceptionSheet} style={styles.exceptionBtn} />}
+        center={
+          <ExceptionReportButton onPress={handleOpenExceptionSheet} style={styles.exceptionBtn} />
+        }
         rightLabel={`确认到料 (${selectedIds.length})`}
         onRightPress={handleConfirmArrival}
       />
@@ -362,6 +336,7 @@ export const MaterialConfirmationPage = ({ navigation, route }: MaterialConfirma
         types={MATERIAL_EXCEPTION_TYPES}
         selectedTypes={exceptionTypes}
         description={exceptionDesc}
+        selectionMode="single"
         onClose={closeExceptionSheet}
         onDescriptionChange={setExceptionDesc}
         onTypesChange={setExceptionTypes}
@@ -380,11 +355,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
-    paddingBottom: 108,
+    flexGrow: 1,
   },
   progressContainer: {
     backgroundColor: '#ECF4FF',
     alignSelf: 'stretch',
+    // 内容不足一屏时也撑到底，避免底部漏出页面灰白底色
+    flexGrow: 1,
     paddingHorizontal: 10,
     paddingBottom: 12,
     gap: 12,
@@ -408,7 +385,7 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   progressTrack: {
     flex: 1,
@@ -420,12 +397,12 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
   },
   progressValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   tabBarSticky: {},
   tabBarPlaceholder: {

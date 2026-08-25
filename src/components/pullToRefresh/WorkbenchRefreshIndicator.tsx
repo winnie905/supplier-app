@@ -7,12 +7,14 @@ import { WORKBENCH_REFRESH_ICON_SIZE } from '@/constants/workbenchRefresh';
 export type WorkbenchRefreshHint = 'pull' | 'release' | 'refreshing';
 
 interface WorkbenchRefreshIndicatorProps {
-  hint: WorkbenchRefreshHint;
+  hint?: WorkbenchRefreshHint;
+  /** 覆盖 hint 对应文案，如订单查询首屏「加载中...」 */
+  label?: string;
 }
 
 const resolvedLoadingGifSource = Image.resolveAssetSource(loadingGifImage);
 
-export const WorkbenchRefreshIndicator = ({ hint }: WorkbenchRefreshIndicatorProps) => {
+export const WorkbenchRefreshIndicator = ({ hint, label }: WorkbenchRefreshIndicatorProps) => {
   const gifSource = useMemo(
     () => (resolvedLoadingGifSource?.uri ? { uri: resolvedLoadingGifSource.uri } : loadingGifImage),
     [],
@@ -23,6 +25,7 @@ export const WorkbenchRefreshIndicator = ({ hint }: WorkbenchRefreshIndicatorPro
     release: '松开刷新',
     refreshing: '正在刷新...',
   };
+  const text = label ?? (hint ? hintTextMap[hint] : '');
 
   return (
     <View style={styles.content}>
@@ -34,7 +37,7 @@ export const WorkbenchRefreshIndicator = ({ hint }: WorkbenchRefreshIndicatorPro
         style={styles.icon}
       />
 
-      <Text style={styles.text}>{hintTextMap[hint]}</Text>
+      <Text style={styles.text}>{text}</Text>
     </View>
   );
 };

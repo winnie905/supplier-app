@@ -105,8 +105,8 @@ export const useKeyboardAwareScroll = (options?: { extraOffset?: number }) => {
     onScroll,
     /** 根容器 paddingBottom：键盘弹起时整页上移 */
     rootKeyboardInset: keyboardHeight,
-    /** ScrollView content 底部留白，避免最后一项被提交栏挡住 */
-    contentBottomInset: bottomBarHeight + 16,
+    /** ScrollView 在底栏上方保留 16，底栏已在文档流中占位 */
+    contentBottomInset: 16,
     keyboardHeight,
   };
 };

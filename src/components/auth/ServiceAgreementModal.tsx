@@ -1,8 +1,7 @@
 import { useIsFocused } from '@react-navigation/native';
-import { Text } from 'design-system-native';
+import { Modal, Text } from 'design-system-native';
 import type { GestureResponderEvent } from 'react-native';
 
-import { AppModal } from '@/components/AppModal';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface ServiceAgreementModalProps {
@@ -27,7 +26,7 @@ export const ServiceAgreementModal = ({
   const visible = open && isFocused;
 
   return (
-    <AppModal
+    <Modal
       visible={visible}
       onClose={onDisagree}
       title={title}

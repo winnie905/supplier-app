@@ -1,8 +1,7 @@
-import { Pressable, Text, VStack } from 'design-system-native';
+import { ClearableInput, designTokens, Pressable, Text, VStack } from 'design-system-native';
 import { StyleSheet, View } from 'react-native';
 
 import ReverseCornerSvg from '@/assets/icons/reverseCorner.svg';
-import { ClearableInput } from '@/components/ClearableInput';
 import { FlatButton } from '@/components/FlatButton';
 import type { PhoneCountryCode } from '@/components/PhoneNumberField';
 import { PhoneNumberField } from '@/components/PhoneNumberField';
@@ -143,7 +142,7 @@ export const LoginOtpFormSection = ({
                 returnKeyType="next"
                 textContentType="emailAddress"
                 style={styles.input}
-                inputFieldStyle={styles.inputText}
+                inputFieldStyle={styles.inputField}
               />
             )}
             {accountError ? (
@@ -164,9 +163,8 @@ export const LoginOtpFormSection = ({
                 keyboardType="number-pad"
                 returnKeyType="done"
                 maxLength={6}
-                showClearButton={true}
                 style={styles.codeInput}
-                inputFieldStyle={styles.inputText}
+                inputFieldStyle={styles.inputField}
               />
               <View style={styles.codeDivider} />
               <Pressable
@@ -209,7 +207,7 @@ const styles = StyleSheet.create({
   },
   body: {
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     borderBottomLeftRadius: RADIUS,
     borderBottomRightRadius: RADIUS,
   },
@@ -225,14 +223,19 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: INPUT_RADIUS,
     backgroundColor: '#F5F7FA',
-    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    fontSize: 15,
+    // 左边距放在外层容器，相对灰底视觉间距才是 12（内层 TextInput 的 padding 常被清零/吞掉）
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingVertical: 8,
   },
-  inputText: {
+  inputField: {
     color: '#0E2D5B',
     fontSize: 15,
+    paddingLeft: 0,
+    paddingRight: 0,
+    paddingVertical: 0,
   },
   codeRow: {
     height: 48,
@@ -246,7 +249,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     backgroundColor: 'transparent',
-    paddingHorizontal: 14,
+    paddingLeft: 12,
+    paddingRight: 0,
+    paddingVertical: 8,
   },
   codeDivider: {
     width: 1,
@@ -261,7 +266,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   getCodeText: {
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontSize: 14,
     fontWeight: '600',
   },
@@ -282,7 +287,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B8CDE9',
   },
   loginButtonText: {
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
     fontSize: 17,
     fontWeight: '600',
   },
@@ -346,7 +351,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
     zIndex: 4,
@@ -373,6 +378,6 @@ const styles = StyleSheet.create({
     width: 18,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#105FC8',
+    backgroundColor: designTokens.colors.brand[500],
   },
 });

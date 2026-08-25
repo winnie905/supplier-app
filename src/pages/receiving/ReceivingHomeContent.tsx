@@ -1,12 +1,10 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
-import { Pressable, Text } from 'design-system-native';
+import { useToast } from 'design-system-native';
 import { type ComponentType, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
-  Image,
   InteractionManager,
-  PanResponder,
   Platform,
   StyleSheet,
   useWindowDimensions,
@@ -15,33 +13,35 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { qrCodeScanImage } from '@/components/images';
-import { useToast } from '@/components/toast/Toast';
+import { PullToRefreshContainer } from '@/components/pullToRefresh';
+import { SearchEntryBar } from '@/components/SearchEntryBar';
 import { type ActionEntryKey, RECEIVING_ACTION_PANEL_BG } from '@/constants/receiving';
 import { ROUTES } from '@/constants/routes';
+import { useImageSourceAspectRatio } from '@/hooks/receiving/useImageSourceAspectRatio';
 import { useSelectedProductionColor } from '@/hooks/receiving/useReceiving';
+import { useReceivingHomePanel } from '@/hooks/receiving/useReceivingHomePanel';
 import { useReceivingHomeStatusBar } from '@/hooks/receiving/useReceivingHomeStatusBar';
 import { getAndroidGestureBottomInset } from '@/navigation/androidNavigationBar';
 import type { LogisticsScreenProps } from '@/navigation/types';
 import {
-  calcSelectedPanelLayout,
-  getImageAspectRatio,
   PANEL_IMAGE_OVERLAP,
-  type PanelLayoutMetrics,
   TAB_CLEARANCE_BUFFER,
   TAB_FLOAT_BOTTOM_GAP,
+  TOP_ZONE_HEIGHT,
 } from '@/sections/receiving/home/panelLayout';
 import { ReceivingHomeEmptyState } from '@/sections/receiving/home/ReceivingHomeEmptyState';
+import { ReceivingHomeHero } from '@/sections/receiving/home/ReceivingHomeHero';
 import {
   ReceivingHomePopover,
-  ReceivingHomeSearchBar,
   ReceivingHomeSearchHeader,
 } from '@/sections/receiving/home/ReceivingHomeSearchHeader';
 import { ReceivingHomeSlidingPanel } from '@/sections/receiving/home/ReceivingHomeSlidingPanel';
 import { ReceivingActionEntries } from '@/sections/receiving/ReceivingActionEntries';
 import { ReceivingImagePreview } from '@/sections/receiving/ReceivingImagePreview';
 import { ReceivingScreenBackground } from '@/sections/receiving/ReceivingScreenBackground';
-import { markNavStart, navPerf, navPerfHomeRender } from '@/utils/navPerf';
+import { getSafeAreaTopInset } from '@/utils/app';
 import { resolveReceivingImage } from '@/utils/receiving/images';
+import { formatSelectedSearchBarValue } from '@/utils/search/searchResultDisplay';
 
 type ReceivingHomeContentProps = LogisticsScreenProps<'LogisticsHome'> & {
   onScanPress?: () => void;
@@ -55,11 +55,7 @@ const ReceivingHomeContentComponent = ({
   onScanPress,
   refreshToken,
 }: ReceivingHomeContentProps) => {
-  navPerfHomeRender({
-    isFocused: navigation.isFocused(),
-  });
-
-  const { showToast } = useToast();
+  const toast = useToast();
   const insets = useSafeAreaInsets();
   const tabBarHeightRaw = useBottomTabBarHeight();
   // TabBar 若被卸载，height 会掉成 0并触发整页重布局；锁定上次有效值避免堵死子页首屏。
@@ -69,19 +65,19 @@ const ReceivingHomeContentComponent = ({
   }
   const tabBarHeight = tabBarHeightRaw > 0 ? tabBarHeightRaw : lockedTabBarHeightRef.current;
   const window = useWindowDimensions();
+  const topInset = getSafeAreaTopInset(insets.top);
   const bottomInset =
     Platform.OS === 'android' ? getAndroidGestureBottomInset(insets.bottom) : insets.bottom;
 
   const { data: selected, refresh } = useSelectedProductionColor();
   useReceivingHomeStatusBar(navigation, Boolean(selected));
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [popoverVisible, setPopoverVisible] = useState(!homePopoverDismissedThisSession);
   const [contentHeight, setContentHeight] = useState(0);
   const [ChromePrewarm, setChromePrewarm] = useState<ComponentType | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const panelOffset = useRef(new Animated.Value(0)).current;
-  const panelLayoutRef = useRef<PanelLayoutMetrics | null>(null);
-  const dragStartOffset = useRef(0);
   const searchNavigatedRef = useRef(false);
   const scanNavigatedRef = useRef(false);
 
@@ -89,20 +85,37 @@ const ReceivingHomeContentComponent = ({
     tabBarHeight + Math.max(bottomInset, TAB_FLOAT_BOTTOM_GAP) + TAB_CLEARANCE_BUFFER;
   const usableContentHeight = Math.max(0, contentHeight - bottomReserve);
 
-  const heroImage = selected ? resolveReceivingImage(selected.imageUrls[0]) : null;
-  const imageAspect = useMemo(() => (heroImage ? getImageAspectRatio(heroImage) : 1), [heroImage]);
-  const imageNaturalHeight = window.width / imageAspect;
+  /** 有样品图才展示远程/本地图；否则主图用未选中时的占位图 */
+  const imageUrls = selected?.imageUrls;
+  const hasSampleImage = Boolean(imageUrls?.length);
+  const heroImages = useMemo(
+    () => (imageUrls?.length ? imageUrls.map((key) => resolveReceivingImage(key)) : []),
+    [imageUrls],
+  );
+  const heroPageCount = heroImages.length;
+  const safeHeroIndex = Math.min(heroImageIndex, Math.max(heroPageCount - 1, 0));
+  // 按当前样品图真实宽高比计算：宽铺满屏，并从状态栏下方开始，保证顶部完整可见
+  const currentHeroSource = heroImages[safeHeroIndex];
+  const imageAspect = useImageSourceAspectRatio(currentHeroSource);
+  const imageNaturalHeight = hasSampleImage
+    ? insets.top + window.width / imageAspect
+    : TOP_ZONE_HEIGHT;
 
-  const panelLayout = useMemo(() => {
-    if (!selected || usableContentHeight <= 0) return null;
-    return calcSelectedPanelLayout(usableContentHeight, imageNaturalHeight);
-  }, [selected, usableContentHeight, imageNaturalHeight]);
+  const { panelOffset, panelLayout, panResponder } = useReceivingHomePanel({
+    ...(selected?.id != null ? { selectedId: selected.id } : {}),
+    usableContentHeight,
+    imageNaturalHeight,
+  });
+
+  useEffect(() => {
+    setHeroImageIndex(0);
+  }, [selected?.id]);
 
   useFocusEffect(
     useCallback(() => {
       searchNavigatedRef.current = false;
       scanNavigatedRef.current = false;
-      void refresh();
+      void refresh({ force: true });
     }, [refresh]),
   );
 
@@ -135,87 +148,34 @@ const ReceivingHomeContentComponent = ({
   const goScan = useCallback(() => {
     if (scanNavigatedRef.current) return;
     scanNavigatedRef.current = true;
-    markNavStart('qrScan', 'press');
     if (onScanPress) {
       onScanPress();
       return;
     }
     navigation.navigate(ROUTES.LOGISTICS.QR_SCAN);
-    navPerf('qrScan', 'navigate-returned');
   }, [navigation, onScanPress]);
 
   const goSearch = useCallback(() => {
     if (searchNavigatedRef.current) return;
     searchNavigatedRef.current = true;
-    markNavStart('search', 'press');
     navigation.navigate(ROUTES.LOGISTICS.SEARCH);
-    navPerf('search', 'navigate-returned');
   }, [navigation]);
 
   useEffect(() => {
     if (refreshToken) {
-      void refresh();
+      void refresh({ force: true });
     }
   }, [refresh, refreshToken]);
 
-  useEffect(() => {
-    if (!panelLayout) return;
-    panelLayoutRef.current = panelLayout;
-    panelOffset.setValue(panelLayout.defaultPanelTop);
-  }, [panelLayout, panelOffset, selected?.id]);
-
-  const animatePanelTo = useCallback(
-    (toValue: number) => {
-      Animated.spring(panelOffset, {
-        toValue,
-        useNativeDriver: false,
-        damping: 22,
-        stiffness: 220,
-      }).start();
-    },
-    [panelOffset],
-  );
-
-  const panResponder = useMemo(() => {
-    if (!panelLayout?.canSlide) {
-      return null;
+  /** 有选中生产色时下拉：强制重拉当前生产单详情（含各模块统计） */
+  const handlePullRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refresh({ silent: true, force: true });
+    } finally {
+      setIsRefreshing(false);
     }
-
-    return PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 6,
-      onPanResponderGrant: () => {
-        panelOffset.stopAnimation((value) => {
-          dragStartOffset.current = value;
-        });
-      },
-      onPanResponderMove: (_, gesture) => {
-        const layout = panelLayoutRef.current;
-        if (!layout) return;
-        const next = Math.min(
-          Math.max(layout.minPanelTop, dragStartOffset.current + gesture.dy),
-          layout.maxPanelTop,
-        );
-        panelOffset.setValue(next);
-      },
-      onPanResponderRelease: (_, gesture) => {
-        const layout = panelLayoutRef.current;
-        if (!layout) return;
-
-        panelOffset.stopAnimation((current) => {
-          const mid = (layout.minPanelTop + layout.maxPanelTop) / 2;
-          let target = current;
-          if (gesture.vy < -0.25 || gesture.dy < -20) {
-            target = layout.minPanelTop;
-          } else if (gesture.vy > 0.25 || gesture.dy > 20) {
-            target = layout.maxPanelTop;
-          } else {
-            target = current < mid ? layout.minPanelTop : layout.maxPanelTop;
-          }
-          animatePanelTo(target);
-        });
-      },
-    });
-  }, [animatePanelTo, panelLayout?.canSlide, panelOffset]);
+  }, [refresh]);
 
   const handleDismissPopover = useCallback(() => {
     homePopoverDismissedThisSession = true;
@@ -234,11 +194,15 @@ const ReceivingHomeContentComponent = ({
   };
 
   const selectedSearchValue = selected
-    ? `${selected.productCode}/${selected.color}/${selected.brand}`
+    ? formatSelectedSearchBarValue({
+        productCode: selected.productCode,
+        color: selected.color,
+        brand: selected.brand,
+      })
     : undefined;
 
   const searchBar = (
-    <ReceivingHomeSearchBar
+    <SearchEntryBar
       onScanPress={goScan}
       onSearchPress={goSearch}
       onSearchPressIn={goSearch}
@@ -250,7 +214,7 @@ const ReceivingHomeContentComponent = ({
     return (
       <ReceivingHomeEmptyState
         bottomReserve={bottomReserve}
-        onDisabledPress={() => showToast('请先扫描或搜索生产二维码', { duration: 3000 })}
+        onDisabledPress={() => toast.show({ title: '请先扫描或搜索生产二维码', duration: 3000 })}
         searchHeader={
           <ReceivingHomeSearchHeader
             searchBar={searchBar}
@@ -279,51 +243,55 @@ const ReceivingHomeContentComponent = ({
       <ReceivingScreenBackground />
       <View pointerEvents="none" style={[styles.bottomFill, { height: bottomReserve }]} />
       <View style={styles.selectedBody}>
-        <View
-          style={styles.contentArea}
-          onLayout={(event) => setContentHeight(event.nativeEvent.layout.height)}
+        {/*
+          与订单查询页同款：整页（含搜索栏）一起下拉，指示器停在安全区下方。
+          滑动面板放在容器外，避免 RNGH Pan 抢走入口区下滑手势。
+        */}
+        <PullToRefreshContainer
+          enabled
+          isRefreshing={isRefreshing}
+          onRefresh={handlePullRefresh}
+          topInset={topInset}
         >
-          {panelLayout && heroImage ? (
-            <>
+          <View
+            style={styles.contentArea}
+            onLayout={(event) => setContentHeight(event.nativeEvent.layout.height)}
+          >
+            {panelLayout ? (
               <Animated.View style={[styles.heroWrap, { height: heroWrapHeight }]}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setPreviewVisible(true)}
-                  style={styles.heroPressable}
-                >
-                  <Image
-                    resizeMode="cover"
-                    source={heroImage}
-                    style={[styles.heroImage, { height: imageNaturalHeight }]}
-                  />
-                  <View style={styles.heroOverlay}>
-                    <Text style={styles.heroTitle}>
-                      {selected.productCode} | {selected.color}
-                    </Text>
-                    <View style={styles.brandTag}>
-                      <Text style={styles.brandTagText}>品牌 {selected.brand}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.pageIndicator}>1/{selected.imageUrls.length}</Text>
-                </Pressable>
+                <ReceivingHomeHero
+                  hasSampleImage={hasSampleImage}
+                  heroImages={heroImages}
+                  windowWidth={window.width}
+                  contentTopInset={insets.top}
+                  productCode={selected.productCode}
+                  color={selected.color}
+                  brand={selected.brand}
+                  safeHeroIndex={safeHeroIndex}
+                  onHeroIndexChange={setHeroImageIndex}
+                  onPressImage={() => setPreviewVisible(true)}
+                />
               </Animated.View>
+            ) : null}
+          </View>
+          <ReceivingHomeSearchHeader absolute searchBar={searchBar} />
+        </PullToRefreshContainer>
 
-              <ReceivingHomeSlidingPanel
-                top={panelOffset}
-                bottomReserve={bottomReserve}
-                {...(panResponder ? { panHandlers: panResponder.panHandlers } : {})}
-              >
-                <ReceivingActionEntries summary={selected} onPressEntry={navigateEntry} />
-              </ReceivingHomeSlidingPanel>
-            </>
-          ) : null}
-        </View>
-        <ReceivingHomeSearchHeader absolute searchBar={searchBar} />
+        {panelLayout ? (
+          <ReceivingHomeSlidingPanel
+            top={panelOffset}
+            bottomReserve={bottomReserve}
+            {...(panResponder ? { panHandlers: panResponder.panHandlers } : {})}
+          >
+            <ReceivingActionEntries summary={selected} onPressEntry={navigateEntry} />
+          </ReceivingHomeSlidingPanel>
+        ) : null}
       </View>
 
       <ReceivingImagePreview
-        visible={previewVisible}
+        visible={previewVisible && hasSampleImage}
         imageKeys={selected.imageUrls}
+        initialIndex={safeHeroIndex}
         onClose={() => setPreviewVisible(false)}
       />
       {ChromePrewarm ? <ChromePrewarm /> : null}
@@ -361,52 +329,5 @@ const styles = StyleSheet.create({
     right: 0,
     overflow: 'hidden',
     zIndex: 1,
-  },
-  heroPressable: {
-    flex: 1,
-    alignItems: 'stretch',
-    justifyContent: 'flex-start',
-  },
-  heroImage: {
-    width: '100%',
-  },
-  heroOverlay: {
-    position: 'absolute',
-    left: 12,
-    bottom: PANEL_IMAGE_OVERLAP + 17,
-    padding: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 8,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  brandTag: {
-    alignSelf: 'flex-start',
-    marginTop: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: '#105FC8',
-  },
-  brandTagText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  pageIndicator: {
-    position: 'absolute',
-    right: 12,
-    bottom: PANEL_IMAGE_OVERLAP + 17,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    overflow: 'hidden',
   },
 });

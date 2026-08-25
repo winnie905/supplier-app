@@ -1,10 +1,12 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useId, useState } from 'react';
+import { designTokens, useToast } from 'design-system-native';
+import { memo, useCallback, useId, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -15,10 +17,15 @@ import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import BackIcon from '@/assets/icons/back.svg';
 import { emptyPageImage, managementEmptyImage } from '@/components/images';
+import { PullToRefreshContainer, WorkbenchRefreshIndicator } from '@/components/pullToRefresh';
 import { SearchEntryBar } from '@/components/SearchEntryBar';
-import { useToast } from '@/components/toast/Toast';
 import { ROUTES } from '@/constants/routes';
-import { useProductionOrders } from '@/hooks/apps/useProductionOrders';
+import { useProductCategories } from '@/hooks/apps/useProductCategories';
+import {
+  EMPTY_PRODUCTION_ORDER_TAB_STATS,
+  PRODUCTION_ORDER_TABS,
+  useProductionOrders,
+} from '@/hooks/apps/useProductionOrders';
 import type { AppsScreenProps } from '@/navigation/types';
 import { OrderSearchScreenBackground } from '@/sections/apps/OrderSearchScreenBackground';
 import { ProductionOrderCard } from '@/sections/apps/ProductionOrderCard';
@@ -29,12 +36,90 @@ import { getSafeAreaTopInset } from '@/utils/app';
 
 type ProductionOrdersPageProps = AppsScreenProps<'ProductionOrders'>;
 
-const emptyTabStats = {
-  pending: { orderCount: 0, pieceCount: 0 },
-  in_progress: { orderCount: 0, pieceCount: 0 },
-  completed: { orderCount: 0, pieceCount: 0 },
-  overdue: { orderCount: 0, pieceCount: 0 },
-};
+const keyExtractor = (item: ProductionOrderView, index: number) =>
+  item.productionOrderCode || String(index);
+
+interface OrderTabPanelProps {
+  tabKey: ProductionOrderTab;
+  active: boolean;
+  data: ProductionOrderView[];
+  loading: boolean;
+  expandedIds: string[];
+  contentContainerStyle: object;
+  getCategoryLabel: (categoryKey?: string) => string;
+  onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onToggleExpand: (id: string) => void;
+  onColorPress: (ref: { productionOrderCode: string; color: string }) => void;
+}
+
+const OrderTabPanel = memo(function OrderTabPanel({
+  tabKey,
+  active,
+  data,
+  loading,
+  expandedIds,
+  contentContainerStyle,
+  getCategoryLabel,
+  onScroll,
+  onToggleExpand,
+  onColorPress,
+}: OrderTabPanelProps) {
+  const showOverdueBadge = tabKey === 'overdue';
+
+  const renderItem = useCallback(
+    ({ item }: { item: ProductionOrderView }) => (
+      <ProductionOrderCard
+        order={item}
+        showOverdueBadge={showOverdueBadge}
+        categoryLabel={getCategoryLabel(item.representative.templateDesign.category)}
+        expanded={expandedIds.includes(item.productionOrderCode)}
+        onToggleExpand={() => onToggleExpand(item.productionOrderCode)}
+        onColorPress={onColorPress}
+      />
+    ),
+    [expandedIds, getCategoryLabel, onColorPress, onToggleExpand, showOverdueBadge],
+  );
+
+  const empty = useMemo(
+    () =>
+      loading ? (
+        <View style={styles.listEmpty}>
+          <WorkbenchRefreshIndicator label="加载中..." />
+        </View>
+      ) : (
+        <View style={styles.listEmpty}>
+          <Image resizeMode="contain" source={managementEmptyImage} style={styles.emptyImage} />
+          <Text style={styles.emptyText}>暂无数据</Text>
+        </View>
+      ),
+    [loading],
+  );
+
+  return (
+    <View
+      pointerEvents={active ? 'auto' : 'none'}
+      style={[styles.listLayer, active ? styles.listLayerActive : styles.listLayerHidden]}
+    >
+      <FlatList
+        data={data}
+        keyExtractor={keyExtractor}
+        style={styles.list}
+        contentContainerStyle={contentContainerStyle}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        removeClippedSubviews
+        ListEmptyComponent={empty}
+        renderItem={renderItem}
+      />
+    </View>
+  );
+});
 
 const OrdersPanelChrome = ({
   width,
@@ -61,8 +146,8 @@ const OrdersPanelChrome = ({
       <Defs>
         {/* border-image: linear-gradient(180deg, #ffffff 0%, #ffffff00 100%) */}
         <LinearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+          <Stop offset="0" stopColor={designTokens.colors.gray[0]} stopOpacity="1" />
+          <Stop offset="1" stopColor={designTokens.colors.gray[0]} stopOpacity="0" />
         </LinearGradient>
       </Defs>
       {topOnly ? (
@@ -87,7 +172,7 @@ const OrdersPanelChrome = ({
 export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPageProps) => {
   const insets = useSafeAreaInsets();
   const topInset = getSafeAreaTopInset(insets.top);
-  const { showToast } = useToast();
+  const toast = useToast();
   const gradientId = useId().replace(/:/g, '');
 
   const [keyword, setKeyword] = useState(route.params?.keyword ?? '');
@@ -99,15 +184,23 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const [emptyPanelSize, setEmptyPanelSize] = useState({ width: 0, height: 0 });
+  const [listAtTopByTab, setListAtTopByTab] = useState<Record<ProductionOrderTab, boolean>>({
+    pending: true,
+    in_progress: true,
+    completed: true,
+    overdue: true,
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 进入页即拉当前供应商全部订单；选中回填后按 productionOrderCode 拉统计/列表
-  const { data, loading } = useProductionOrders({
+  // 进入页并行拉统计 + 四 Tab 列表；切换 Tab 只切本地缓存
+  const { data, ordersByTab, loading, refresh } = useProductionOrders({
     keyword,
     ...(productionOrderCode ? { productionOrderCode } : {}),
     tab,
     sort,
     enabled: true,
   });
+  const { getCategoryLabel } = useProductCategories();
 
   useFocusEffect(
     useCallback(() => {
@@ -127,29 +220,55 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
   );
 
   const goSearch = useCallback(() => {
+    // 已选中回填（大货款号/颜色/品牌）时不带入搜索页，与收发管理一致
     navigation.navigate(ROUTES.APPS.APPS_SEARCH, {
-      ...(keyword ? { initialKeyword: keyword } : {}),
+      ...(productionOrderCode || !keyword.trim() ? {} : { initialKeyword: keyword }),
     });
-  }, [keyword, navigation]);
+  }, [keyword, navigation, productionOrderCode]);
 
-  const toggleExpand = (id: string) => {
+  /** 清除搜索条件：回到全部生产单 */
+  const clearSearch = useCallback(() => {
+    setKeyword('');
+    setProductionOrderCode('');
+    navigation.setParams({ keyword: '', productionOrderCode: '' });
+  }, [navigation]);
+
+  const toggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
-  };
+  }, []);
 
   const handleColorPress = useCallback(
-    async (productionColorId: string) => {
+    async (ref: { productionOrderCode: string; color: string }) => {
       try {
-        await receivingService.selectProductionColor(productionColorId);
-        showToast('已选中生产色，可前往收发管理操作', { duration: 2500 });
-        navigation.getParent()?.navigate(ROUTES.TABS.LOGISTICS_TAB);
+        await receivingService.selectProductionColorByOrderAndColor(
+          ref.productionOrderCode,
+          ref.color,
+        );
+        navigation.getParent()?.navigate(ROUTES.TABS.LOGISTICS_TAB, {
+          screen: ROUTES.LOGISTICS.LOGISTICS_HOME,
+        });
       } catch {
-        showToast('选中生产色失败，请稍后重试', { duration: 3000 });
+        toast.show({ title: '选中生产色失败，请稍后重试', duration: 3000 });
       }
     },
-    [navigation, showToast],
+    [navigation, toast],
   );
+
+  /**
+   * 下拉刷新（页面顶部「下拉刷新 / 正在刷新...」，与收发首页同款）：
+   * - 有选中生产单号：重拉该单列表 + 统计
+   * - 无选中：重拉最近生产单列表 + 统计
+   */
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refresh({ silent: true });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refresh]);
 
   const onPanelLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -165,100 +284,116 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
     );
   };
 
+  const listContentStyle = useMemo(
+    () => [styles.ordersListContent, { paddingBottom: Math.max(insets.bottom, 12) }],
+    [insets.bottom],
+  );
+
+  const scrollHandlers = useMemo(() => {
+    const createHandler =
+      (tabKey: ProductionOrderTab) => (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const atTop = event.nativeEvent.contentOffset.y <= 0.5;
+        setListAtTopByTab((prev) => (prev[tabKey] === atTop ? prev : { ...prev, [tabKey]: atTop }));
+      };
+    return {
+      pending: createHandler('pending'),
+      in_progress: createHandler('in_progress'),
+      completed: createHandler('completed'),
+      overdue: createHandler('overdue'),
+    } satisfies Record<
+      ProductionOrderTab,
+      (event: NativeSyntheticEvent<NativeScrollEvent>) => void
+    >;
+  }, []);
+
   const totalOrderCount = data?.totalOrderCount ?? 0;
-  const orders = data?.orders ?? [];
-  const tabStats = data?.tabStats ?? emptyTabStats;
-  const showEmptyPanel = !loading && orders.length === 0 && totalOrderCount === 0;
+  const tabStats = data?.tabStats ?? EMPTY_PRODUCTION_ORDER_TAB_STATS;
+  const showEmptyPanel = !loading && totalOrderCount === 0;
+  const pullEnabled = showEmptyPanel || listAtTopByTab[tab] || isRefreshing;
 
   return (
     <View style={styles.page}>
       <OrderSearchScreenBackground />
 
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
-        <Pressable
-          accessibilityLabel="返回"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-        >
-          <BackIcon color="#061B37" height={22} width={22} />
-        </Pressable>
-        <SearchEntryBar
-          showScan={false}
-          style={styles.searchBar}
-          value={keyword}
-          onSearchPress={goSearch}
-        />
-      </View>
-
-      {showEmptyPanel ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.totalCount}>共 0 个订单</Text>
-          <View
-            style={[styles.emptyPanel, { paddingBottom: 24 + insets.bottom }]}
-            onLayout={onEmptyPanelLayout}
-          >
-            <OrdersPanelChrome
-              topOnly
-              width={emptyPanelSize.width}
-              height={emptyPanelSize.height}
-              gradientId={`${gradientId}-empty`}
+      <PullToRefreshContainer
+        enabled={pullEnabled}
+        isRefreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        topInset={topInset}
+      >
+        <View style={styles.body}>
+          <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+            <Pressable
+              accessibilityLabel="返回"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => navigation.goBack()}
+              style={styles.backBtn}
+            >
+              <BackIcon color="#061B37" height={22} width={22} />
+            </Pressable>
+            <SearchEntryBar
+              showScan={false}
+              style={styles.searchBar}
+              value={keyword}
+              onClear={clearSearch}
+              onSearchPress={goSearch}
             />
-            <Image resizeMode="contain" source={emptyPageImage} style={styles.emptyImage} />
-            <Text style={styles.emptyText}>暂无数据</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.listWrap}>
-          <View style={styles.listHeader}>
-            <Text style={styles.totalCountInline}>共 {totalOrderCount} 个订单</Text>
-            <ProductionOrderStatusTabs activeTab={tab} tabStats={tabStats} onChange={setTab} />
           </View>
 
-          <View style={styles.ordersPanel} onLayout={onPanelLayout}>
-            <OrdersPanelChrome
-              width={panelSize.width}
-              height={panelSize.height}
-              gradientId={gradientId}
-            />
-
-            <FlatList
-              data={orders}
-              keyExtractor={(item) => item.productionOrderCode}
-              contentContainerStyle={[
-                styles.ordersListContent,
-                { paddingBottom: Math.max(insets.bottom, 12) },
-              ]}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                loading ? (
-                  <View style={styles.listEmpty}>
-                    <ActivityIndicator color="#105FC8" />
-                  </View>
-                ) : (
-                  <View style={styles.listEmpty}>
-                    <Image
-                      resizeMode="contain"
-                      source={managementEmptyImage}
-                      style={styles.emptyImage}
-                    />
-                    <Text style={styles.emptyText}>暂无数据</Text>
-                  </View>
-                )
-              }
-              renderItem={({ item }: { item: ProductionOrderView }) => (
-                <ProductionOrderCard
-                  order={item}
-                  expanded={expandedIds.includes(item.productionOrderCode)}
-                  onToggleExpand={() => toggleExpand(item.productionOrderCode)}
-                  onColorPress={handleColorPress}
+          {showEmptyPanel ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.totalCount}>共 0 个订单</Text>
+              <View
+                style={[styles.emptyPanel, { paddingBottom: 24 + insets.bottom }]}
+                onLayout={onEmptyPanelLayout}
+              >
+                <OrdersPanelChrome
+                  topOnly
+                  width={emptyPanelSize.width}
+                  height={emptyPanelSize.height}
+                  gradientId={`${gradientId}-empty`}
                 />
-              )}
-            />
-          </View>
+                <Image resizeMode="contain" source={emptyPageImage} style={styles.emptyImage} />
+                <Text style={styles.emptyText}>暂无数据</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.listWrap}>
+              <View style={styles.listHeader}>
+                <Text style={styles.totalCountInline}>共 {totalOrderCount} 个订单</Text>
+                <ProductionOrderStatusTabs activeTab={tab} tabStats={tabStats} onChange={setTab} />
+              </View>
+
+              <View style={styles.ordersPanel} onLayout={onPanelLayout}>
+                <OrdersPanelChrome
+                  width={panelSize.width}
+                  height={panelSize.height}
+                  gradientId={gradientId}
+                />
+
+                <View style={styles.listStack}>
+                  {PRODUCTION_ORDER_TABS.map((tabKey) => (
+                    <OrderTabPanel
+                      key={tabKey}
+                      tabKey={tabKey}
+                      active={tab === tabKey}
+                      data={ordersByTab[tabKey]}
+                      loading={loading}
+                      expandedIds={expandedIds}
+                      contentContainerStyle={listContentStyle}
+                      getCategoryLabel={getCategoryLabel}
+                      onScroll={scrollHandlers[tabKey]}
+                      onToggleExpand={toggleExpand}
+                      onColorPress={handleColorPress}
+                    />
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
         </View>
-      )}
+      </PullToRefreshContainer>
     </View>
   );
 };
@@ -267,6 +402,9 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: '#DDEFFF',
+  },
+  body: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -328,6 +466,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF5FA',
     overflow: 'hidden',
   },
+  listStack: {
+    flex: 1,
+  },
+  listLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  listLayerActive: {
+    opacity: 1,
+    zIndex: 1,
+  },
+  listLayerHidden: {
+    opacity: 0,
+    zIndex: 0,
+  },
+  list: {
+    flex: 1,
+  },
   ordersListContent: {
     gap: 12,
     paddingBottom: 24,
@@ -346,7 +501,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#525866',
+    color: designTokens.colors.gray[500],
     fontWeight: '600',
   },
 });

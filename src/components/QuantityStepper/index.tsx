@@ -1,4 +1,5 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, Text } from 'design-system-native';
+import { useState } from 'react';
 import type { FocusEvent, StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, TextInput, View } from 'react-native';
 
@@ -21,10 +22,14 @@ const STEP_ICON_COLOR = '#000000';
 const STEP_DISABLED_COLOR = '#BAC0CA';
 const ICON_COLOR = '#021626';
 
+/** 小数位数上限（如箱重保留两位） */
+const DECIMAL_PLACES = 2;
+const DECIMAL_FACTOR = 10 ** DECIMAL_PLACES;
+
 const clampNumber = (value: number, allowDecimal: boolean) => {
   const safe = Number.isFinite(value) ? value : 0;
   if (allowDecimal) {
-    return Math.max(0, Math.round(safe * 10) / 10);
+    return Math.max(0, Math.round(safe * DECIMAL_FACTOR) / DECIMAL_FACTOR);
   }
   return Math.max(0, Math.floor(safe));
 };
@@ -32,8 +37,9 @@ const clampNumber = (value: number, allowDecimal: boolean) => {
 const sanitizeNumericText = (text: string, allowDecimal: boolean) => {
   if (allowDecimal) {
     const cleaned = text.replace(/[^\d.]/g, '');
-    const [head, ...rest] = cleaned.split('.');
-    return rest.length > 0 ? `${head ?? ''}.${rest.join('')}` : (head ?? '');
+    const [head = '', ...rest] = cleaned.split('.');
+    if (rest.length === 0) return head;
+    return `${head}.${rest.join('').slice(0, DECIMAL_PLACES)}`;
   }
   return text.replace(/\D/g, '');
 };
@@ -48,8 +54,12 @@ export const QuantityStepper = ({
   style,
   onInputFocus,
 }: QuantityStepperProps) => {
+  /** 输入过程中的原始文本：保留「1.」「1.0」这类中间态，避免被数值回写吞掉小数点 */
+  const [draft, setDraft] = useState<string | null>(null);
+
   const setValue = (next: number) => {
     if (!editable) return;
+    setDraft(null);
     onChange(clampNumber(next, allowDecimal));
   };
 
@@ -96,17 +106,20 @@ export const QuantityStepper = ({
           editable={editable}
           keyboardType={allowDecimal ? 'decimal-pad' : 'number-pad'}
           onChangeText={(text) => {
+            if (!editable) return;
             const cleaned = sanitizeNumericText(text, allowDecimal);
+            setDraft(cleaned);
             if (cleaned === '' || cleaned === '.') {
-              setValue(0);
+              onChange(0);
               return;
             }
             const parsed = allowDecimal ? parseFloat(cleaned) : parseInt(cleaned, 10);
-            setValue(Number.isNaN(parsed) ? 0 : parsed);
+            onChange(clampNumber(Number.isNaN(parsed) ? 0 : parsed, allowDecimal));
           }}
+          onBlur={() => setDraft(null)}
           onFocus={onInputFocus}
           style={styles.input}
-          value={value === 0 ? '' : String(value)}
+          value={draft ?? (value === 0 ? '' : String(value))}
         />
         <Pressable
           accessibilityRole="button"
@@ -154,7 +167,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   stepBtnDisabled: {
-    backgroundColor: '#F7F9FC',
+    backgroundColor: designTokens.colors.gray[50],
   },
   stepText: {
     fontSize: 14,
@@ -168,7 +181,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#F7F9FC',
+    backgroundColor: designTokens.colors.gray[50],
     paddingHorizontal: 12,
     paddingVertical: 6,
     flexDirection: 'row',

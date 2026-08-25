@@ -1,52 +1,19 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { designTokens } from 'design-system-native';
+import { FlatList, Image, StyleSheet, Text, View } from 'react-native';
 
+import { emptyPageImage } from '@/components/images';
 import { useFactoryExceptions } from '@/hooks/receiving/useReceiving';
 import type { LogisticsScreenProps } from '@/navigation/types';
-import { ReceivingStatusBadge } from '@/sections/receiving/ReceivingStatusBadge';
-import type { FactoryException } from '@/types/receiving';
+import { ExceptionReplyCard } from '@/sections/receiving/exception/ExceptionReplyCard';
 
 type ExceptionReplyListPageProps = LogisticsScreenProps<'ExceptionReplyList'>;
 
-const ExceptionCard = ({ item }: { item: FactoryException }) => {
-  const pending = item.status === 'pending';
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardTitle}>
-        <View style={styles.titleLeft}>
-          {pending ? <ReceivingStatusBadge compact label="待回复" tone="orange" /> : null}
-          <Text style={styles.titleText} numberOfLines={1}>
-            {item.reporter}提交了异常
-          </Text>
-        </View>
-        <Text style={styles.timeText}>{item.reportedAt}</Text>
-      </View>
-
-      <View style={styles.cardBody}>
-        <Text style={styles.row}>
-          <Text style={styles.label}>异常内容：</Text>
-          <Text style={styles.value}>{item.content}</Text>
-        </Text>
-        <Text style={styles.row}>
-          <Text style={styles.label}>问题描述：</Text>
-          <Text style={styles.value}>
-            {item.type ? `【${item.type}】` : ''}
-            {item.description}
-          </Text>
-        </Text>
-      </View>
-
-      {item.replyContent ? (
-        <View style={styles.replyBox}>
-          <Text style={styles.replyText}>
-            回复：{item.replyContent}
-            {item.repliedAt ? ` (回复时间${item.repliedAt})` : ''}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
-};
+const ExceptionReplyEmpty = () => (
+  <View style={styles.empty}>
+    <Image resizeMode="contain" source={emptyPageImage} style={styles.emptyImage} />
+    <Text style={styles.emptyText}>暂无记录</Text>
+  </View>
+);
 
 export const ExceptionReplyListPage = ({ route }: ExceptionReplyListPageProps) => {
   const { productionColorId, module } = route.params;
@@ -57,8 +24,8 @@ export const ExceptionReplyListPage = ({ route }: ExceptionReplyListPageProps) =
       data={items}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
-      ListEmptyComponent={<Text style={styles.empty}>暂无异常记录</Text>}
-      renderItem={({ item }) => <ExceptionCard item={item} />}
+      ListEmptyComponent={<ExceptionReplyEmpty />}
+      renderItem={({ item }) => <ExceptionReplyCard item={item} />}
       style={styles.root}
     />
   );
@@ -75,65 +42,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   empty: {
-    textAlign: 'center',
-    marginTop: 80,
-    color: '#8A98AD',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 10,
-    gap: 10,
-  },
-  cardTitle: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#EBEFF7',
   },
-  titleLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minWidth: 0,
+  emptyImage: {
+    marginTop: 90,
+    width: 200,
+    height: 200,
   },
-  titleText: {
-    flexShrink: 1,
+  emptyText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#021626',
-  },
-  timeText: {
-    fontSize: 12,
-    color: '#8A98AD',
-    flexShrink: 0,
-  },
-  cardBody: {
-    gap: 6,
-  },
-  row: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  label: {
-    color: '#8A98AD',
-  },
-  value: {
-    color: '#4B5D73',
-  },
-  replyBox: {
-    backgroundColor: '#EEF5FF',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  replyText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#105FC8',
+    fontWeight: '600',
+    color: designTokens.colors.gray[500],
   },
 });

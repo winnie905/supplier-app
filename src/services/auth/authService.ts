@@ -64,7 +64,7 @@ export async function getAccessToken(product: string, refreshToken: string) {
     throw new Error('No refresh token');
   }
 
-  const { data } = await apolloClient.mutate<
+  const { data } = await loginClient.mutate<
     GetAccessTokenMutationData,
     GetAccessTokenMutationVariables
   >({

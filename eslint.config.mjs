@@ -105,5 +105,15 @@ export default [
       sourceType: 'module',
     },
   },
+  {
+    files: ['scripts/**/*.{js,cjs}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      globals: {
+        ...globals.node,
+      },
+      sourceType: 'commonjs',
+    },
+  },
   eslintConfigPrettier,
 ];

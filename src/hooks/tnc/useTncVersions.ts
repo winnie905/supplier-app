@@ -5,15 +5,33 @@ import type { TncVersion } from '@/types/tnc';
 
 export const useTncVersions = () => {
   const [versions, setVersions] = useState<TncVersion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    void tncService.getCurrentVersions().then((result) => {
-      if (!cancelled) {
-        setVersions(result);
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await tncService.getCurrentVersions();
+        if (!cancelled) {
+          setVersions(result);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '协议加载失败');
+          setVersions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    });
+    };
+
+    void load();
 
     return () => {
       cancelled = true;
@@ -27,5 +45,7 @@ export const useTncVersions = () => {
     versions,
     userAgreement,
     privacyPolicy,
+    loading,
+    error,
   };
 };

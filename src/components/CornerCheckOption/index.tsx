@@ -1,4 +1,4 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
@@ -26,15 +26,20 @@ export const CornerCheckOption = ({
   const isBottom = cornerPosition === 'bottom-right';
 
   return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-      onPress={onPress}
-      style={[styles.item, selected && styles.itemSelected, style]}
-    >
-      <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
+    <View style={style}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: selected }}
+        onPress={onPress}
+        style={[styles.item, selected && styles.itemSelected]}
+      >
+        <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
+      </Pressable>
       {selected ? (
-        <View style={[styles.corner, isBottom ? styles.cornerBottomRight : styles.cornerTopRight]}>
+        <View
+          pointerEvents="none"
+          style={[styles.corner, isBottom ? styles.cornerBottomRight : styles.cornerTopRight]}
+        >
           <View
             style={[
               styles.triangle,
@@ -42,27 +47,28 @@ export const CornerCheckOption = ({
             ]}
           />
           <View style={[styles.check, isBottom ? styles.checkBottomRight : styles.checkTopRight]}>
-            <CheckIcon color="#FFFFFF" height={8} width={8} />
+            <CheckIcon color={designTokens.colors.gray[0]} height={8} width={8} />
           </View>
         </View>
       ) : null}
-    </Pressable>
+    </View>
   );
 };
 
-const CORNER_SIZE = 24;
+const BORDER_WIDTH = 1;
+const RADIUS = 8;
+const CORNER_SIZE = 25;
 
 const styles = StyleSheet.create({
   item: {
     height: 38,
-    borderRadius: 8,
+    borderRadius: RADIUS,
     paddingVertical: 8,
     backgroundColor: '#F7F9FA',
-    borderWidth: 1,
+    borderWidth: BORDER_WIDTH,
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
   itemSelected: {
     backgroundColor: '#EEF5FF',
@@ -78,19 +84,23 @@ const styles = StyleSheet.create({
   },
   corner: {
     position: 'absolute',
-    right: 0,
     width: CORNER_SIZE,
     height: CORNER_SIZE,
+    overflow: 'hidden',
   },
   cornerTopRight: {
     top: 0,
+    right: 0,
+    borderTopRightRadius: RADIUS,
   },
   cornerBottomRight: {
     bottom: 0,
+    right: 0,
+    borderBottomRightRadius: RADIUS,
   },
   triangle: {
     position: 'absolute',
-    right: 0,
+    right: -1,
     width: 0,
     height: 0,
     borderStyle: 'solid',
@@ -99,7 +109,7 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
   },
   triangleTopRight: {
-    top: 0,
+    top: -1,
     borderTopWidth: CORNER_SIZE,
     borderTopColor: '#0958D9',
     borderBottomColor: 'transparent',
@@ -112,12 +122,12 @@ const styles = StyleSheet.create({
   },
   check: {
     position: 'absolute',
-    right: 2,
+    right: 3,
   },
   checkTopRight: {
-    top: 2,
+    top: 3,
   },
   checkBottomRight: {
-    bottom: 2,
+    bottom: 3,
   },
 });

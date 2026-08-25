@@ -81,6 +81,5 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 4,
-    opacity: 0.9,
   },
 });

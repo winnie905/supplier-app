@@ -51,15 +51,11 @@ export async function saveReceivingState(state: ReceivingPersistedState): Promis
   await AsyncStorage.setItem(RECEIVING_STORAGE_KEY, JSON.stringify(toPersistedState(state)));
 }
 
-export function getReceivingStateSync(): ReceivingPersistedState | null {
-  return memoryCache;
-}
-
-export function setReceivingStateCache(state: ReceivingPersistedState): void {
-  memoryCache = state;
-}
-
-export async function clearReceivingState(): Promise<void> {
-  memoryCache = defaultState();
-  await AsyncStorage.removeItem(RECEIVING_STORAGE_KEY);
+export async function withState<T>(
+  fn: (state: ReceivingPersistedState) => T | Promise<T>,
+): Promise<T> {
+  const state = await loadReceivingState();
+  const result = await fn(state);
+  await saveReceivingState(state);
+  return result;
 }

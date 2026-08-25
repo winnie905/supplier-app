@@ -1,3 +1,4 @@
+import { designTokens } from 'design-system-native';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { Pressable, type StyleProp, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
@@ -17,6 +18,8 @@ interface UseExceptionReportChromeParams {
   productionColorId: string;
   module: ExceptionModule;
   allowedTypes: readonly string[];
+  /** 打开上报弹窗时默认选中第一个异常类型 */
+  selectFirstTypeOnOpen?: boolean;
 }
 
 /** 异常回复 header + 上报 sheet 状态（物料/裁床共用） */
@@ -25,6 +28,7 @@ export const useExceptionReportChrome = ({
   productionColorId,
   module,
   allowedTypes,
+  selectFirstTypeOnOpen = false,
 }: UseExceptionReportChromeParams) => {
   const {
     items: exceptions,
@@ -53,7 +57,7 @@ export const useExceptionReportChrome = ({
           }
           style={styles.headerRight}
         >
-          <MarkEmailReadIcon color="#105FC8" height={16} width={16} />
+          <MarkEmailReadIcon color={designTokens.colors.brand[500]} height={16} width={16} />
           <Text style={styles.headerRightText}>异常回复</Text>
           {pendingCount > 0 ? <View style={styles.badgeDot} /> : null}
         </Pressable>
@@ -61,7 +65,13 @@ export const useExceptionReportChrome = ({
     });
   }, [module, navigation, pendingCount, productionColorId]);
 
-  const openExceptionSheet = useCallback(() => setExceptionVisible(true), []);
+  const openExceptionSheet = useCallback(() => {
+    if (selectFirstTypeOnOpen) {
+      const firstType = allowedTypes[0];
+      setExceptionTypes(firstType ? [firstType] : []);
+    }
+    setExceptionVisible(true);
+  }, [allowedTypes, selectFirstTypeOnOpen]);
 
   const closeExceptionSheet = useCallback(() => {
     setExceptionVisible(false);
@@ -74,6 +84,7 @@ export const useExceptionReportChrome = ({
 
   return {
     cornerTag,
+    exceptions,
     pendingCount,
     exceptionVisible,
     exceptionTypes,
@@ -108,7 +119,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   headerRightText: {
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontSize: 15,
   },
   badgeDot: {
@@ -125,13 +136,13 @@ const styles = StyleSheet.create({
     height: 45,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#105FC8',
+    borderColor: designTokens.colors.brand[500],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
   },
   exceptionBtnText: {
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontSize: 18,
   },
 });

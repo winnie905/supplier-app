@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useAppTheme } from '@/hooks/useAppTheme';
 import type { MaterialCategory } from '@/types/receiving';
 
 export interface MaterialTabItem {
@@ -13,24 +14,38 @@ interface MaterialTabBarProps {
   onTabPress: (category: MaterialCategory) => void;
 }
 
-export const MaterialTabBar = ({ tabs, activeTab, onTabPress }: MaterialTabBarProps) => (
-  <View style={styles.tabBar}>
-    {tabs.map((tab) => {
-      const active = activeTab === tab.key;
-      return (
-        <Pressable
-          key={tab.key}
-          accessibilityRole="tab"
-          onPress={() => onTabPress(tab.key)}
-          style={styles.tabItem}
-        >
-          <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
-          {active ? <View style={styles.tabUnderline} /> : null}
-        </Pressable>
-      );
-    })}
-  </View>
-);
+export const MaterialTabBar = ({ tabs, activeTab, onTabPress }: MaterialTabBarProps) => {
+  const { colors } = useAppTheme();
+
+  return (
+    <View style={styles.tabBar}>
+      {tabs.map((tab) => {
+        const active = activeTab === tab.key;
+        return (
+          <Pressable
+            key={tab.key}
+            accessibilityRole="tab"
+            onPress={() => onTabPress(tab.key)}
+            style={styles.tabItem}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                active && styles.tabTextActive,
+                active && { color: colors.primary },
+              ]}
+            >
+              {tab.label}
+            </Text>
+            {active ? (
+              <View style={[styles.tabUnderline, { backgroundColor: colors.primary }]} />
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   tabBar: {
@@ -45,12 +60,11 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#6B7A90',
-    fontWeight: '500',
   },
   tabTextActive: {
-    color: '#105FC8',
+    fontSize: 18,
     fontWeight: '700',
   },
   tabUnderline: {
@@ -59,6 +73,5 @@ const styles = StyleSheet.create({
     width: 28,
     height: 3,
     borderRadius: 2,
-    backgroundColor: '#105FC8',
   },
 });

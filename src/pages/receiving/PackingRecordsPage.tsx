@@ -1,22 +1,20 @@
 import { useHeaderHeight } from '@react-navigation/elements';
-import { VStack } from 'design-system-native';
+import { designTokens, useToast, VStack } from 'design-system-native';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import AddIcon from '@/assets/icons/circlePlusOutline.svg';
 import DeleteIcon from '@/assets/icons/delete.svg';
-import EditIcon from '@/assets/icons/edit.svg';
 import { DashedButton } from '@/components/DashedButton';
 import { ExpandableRecordCard } from '@/components/ExpandableRecordCard';
 import { QuantityStepper } from '@/components/QuantityStepper';
-import { RecordDetailPanel } from '@/components/RecordDetailPanel';
-import { useToast } from '@/components/toast/Toast';
-import { useDebouncedPersist } from '@/hooks/receiving/useDebouncedPersist';
+import { RecordDetailPanel, toSizeDetailItems } from '@/components/RecordDetailPanel';
 import { useDebouncedSubmit } from '@/hooks/receiving/useDebouncedSubmit';
-import { useExpandableRecordList } from '@/hooks/receiving/useExpandableRecordList';
 import { useKeyboardAwareScroll } from '@/hooks/receiving/useKeyboardAwareScroll';
 import { usePackingRecords, useProductionColorDetail } from '@/hooks/receiving/useReceiving';
+import { useRecordsSubmit } from '@/hooks/receiving/useRecordsSubmit';
+import { useSyncedExpandableRecords } from '@/hooks/receiving/useSyncedExpandableRecords';
 import type { LogisticsScreenProps } from '@/navigation/types';
 import { PackingCartonSheet } from '@/sections/receiving/packing/PackingCartonSheet';
 import { PackingSummaryCard } from '@/sections/receiving/packing/PackingSummaryCard';
@@ -26,92 +24,103 @@ import { ReceivingImagePreview } from '@/sections/receiving/ReceivingImagePrevie
 import { ReceivingOrderInfoCard } from '@/sections/receiving/ReceivingOrderInfoCard';
 import { ReceivingQuantityGrid } from '@/sections/receiving/ReceivingQuantityGrid';
 import { ReceivingRecordsScrollShell } from '@/sections/receiving/ReceivingRecordsScrollShell';
+import { ReceivingStatusBadge } from '@/sections/receiving/ReceivingStatusBadge';
+import { RecordCardEditButton } from '@/sections/receiving/RecordCardEditButton';
 import {
   emptySizeQuantities,
   receivingService,
+  sizeNamesFromRange,
   sumQuantities,
 } from '@/services/receiving/receivingService';
 import type { CartonSpec, PackingBoxRecord } from '@/types/receiving';
-import { sizeNamesFromRange } from '@/types/receiving';
 
 type PackingRecordsPageProps = LogisticsScreenProps<'PackingRecords'>;
 
 export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProps) => {
   const { productionColorId } = route.params;
   const headerHeight = useHeaderHeight();
-  const { showToast } = useToast();
+  const toast = useToast();
   const runSubmit = useDebouncedSubmit();
   const { detail } = useProductionColorDetail(productionColorId);
   const { data, refresh } = usePackingRecords(productionColorId);
   const { scrollRef, onInputFocus, onScroll, contentBottomInset, rootKeyboardInset } =
     useKeyboardAwareScroll();
+
+  const [cartonSheetVisible, setCartonSheetVisible] = useState(false);
+  const [cartonTargetBoxId, setCartonTargetBoxId] = useState<string | null>(null);
+  const [pendingCartonId, setPendingCartonId] = useState<string | undefined>();
+  const [packagePreviewVisible, setPackagePreviewVisible] = useState(false);
+
+  const sizes = useMemo(
+    () => data?.sizes ?? (detail ? sizeNamesFromRange(detail.sizeRange) : []),
+    [data?.sizes, detail],
+  );
+  const [cartonSpecs, setCartonSpecs] = useState<CartonSpec[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void receivingService
+      .getCartonSpecsForProductionColor(productionColorId)
+      .then((list) => {
+        if (!cancelled) setCartonSpecs(list);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCartonSpecs([]);
+          toast.show({ title: '箱规加载失败', duration: 3000 });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productionColorId, toast]);
+
+  const getApiRecords = useCallback(
+    (payload: NonNullable<typeof data>) =>
+      payload.boxes.map((box) => ({
+        ...box,
+        weightKg: box.weightKg ?? 0,
+      })),
+    [],
+  );
+  const alsoEditFirst = useCallback((first: PackingBoxRecord) => !first.submitted, []);
+  const ensureSeed = useCallback(
+    (list: PackingBoxRecord[], seedOnce: () => boolean): PackingBoxRecord[] | null => {
+      // 无装箱记录时补一条空箱草稿（仅内存），便于直接填写
+      if (list.length > 0 || sizes.length === 0 || !seedOnce()) return null;
+      return [
+        {
+          id: `local-${Date.now()}`,
+          boxNo: 1,
+          weightKg: 0,
+          sizeQuantities: emptySizeQuantities(sizes),
+          submitted: false,
+        },
+      ];
+    },
+    [sizes],
+  );
+
   const {
+    records: boxes,
+    persistRecords: persistBoxes,
+    resetSyncGuards,
     expandedIds,
     setExpandedIds,
     editingId,
     setEditingId,
     toggleExpand,
     ensureExpanded,
-    initExpandFirst,
     collapseToFirst,
-  } = useExpandableRecordList();
-
-  const [boxes, setBoxes] = useState<PackingBoxRecord[]>([]);
-  const [cartonSheetVisible, setCartonSheetVisible] = useState(false);
-  const [cartonTargetBoxId, setCartonTargetBoxId] = useState<string | null>(null);
-  const [pendingCartonId, setPendingCartonId] = useState<string | undefined>();
-  const [packagePreviewVisible, setPackagePreviewVisible] = useState(false);
-
-  const sizes = data?.sizes ?? (detail ? sizeNamesFromRange(detail.sizeRange) : []);
-  const [cartonSpecs, setCartonSpecs] = useState<CartonSpec[]>(() =>
-    receivingService.getCartonSpecs(),
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    void receivingService.getCartonSpecsForProductionColor(productionColorId).then((list) => {
-      if (!cancelled && list.length > 0) setCartonSpecs(list);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [productionColorId]);
-
-  const { schedule: schedulePersist, flush: flushPersist } = useDebouncedPersist(
-    async (next: PackingBoxRecord[], editing?: string) => {
-      await receivingService.savePackingDraft(productionColorId, next, editing);
-    },
-  );
-
-  const persist = useCallback(
-    async (next: PackingBoxRecord[], editing?: string, immediate = false) => {
-      setBoxes(next);
-      setEditingId(editing);
-      if (immediate) {
-        await receivingService.savePackingDraft(productionColorId, next, editing);
-        return;
-      }
-      schedulePersist(next, editing);
-    },
-    [productionColorId, schedulePersist, setEditingId],
-  );
-
-  useEffect(() => {
-    if (!data?.boxes) return;
-    const nextBoxes = sortBoxesNewestFirst(
-      data.boxes.map((box) => ({
-        ...box,
-        weightKg: box.weightKg ?? 0,
-      })),
-    );
-    setBoxes(nextBoxes);
-
-    if (nextBoxes.length > 0) {
-      initExpandFirst(nextBoxes[0]!.id, !nextBoxes[0]!.submitted);
-    }
-
-    if (data.editingBoxId) setEditingId(data.editingBoxId);
-  }, [data, initExpandFirst, setEditingId]);
+  } = useSyncedExpandableRecords({
+    data,
+    getApiRecords,
+    sortRecords: sortBoxesNewestFirst,
+    ensureSeed,
+    alsoEditFirst,
+    persistEditingId: true,
+    clearEditingOnSync: true,
+  });
 
   const packageAttachment = detail?.packageAttachment ?? [];
 
@@ -123,7 +132,7 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
           accessibilityRole="button"
           onPress={() => {
             if (packageAttachment.length === 0) {
-              showToast('暂无包装要求', { duration: 2000 });
+              toast.show({ title: '暂无包装要求', duration: 2000 });
               return;
             }
             setPackagePreviewVisible(true);
@@ -134,12 +143,12 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
         </Pressable>
       ),
     });
-  }, [navigation, packageAttachment.length, showToast]);
+  }, [navigation, packageAttachment.length, toast]);
 
-  const addBox = async () => {
+  const addBox = () => {
     const nextNo = boxes.reduce((max, box) => Math.max(max, box.boxNo), 0) + 1;
     const box: PackingBoxRecord = {
-      id: `box-${Date.now()}`,
+      id: `local-${Date.now()}`,
       boxNo: nextNo,
       weightKg: 0,
       sizeQuantities: emptySizeQuantities(sizes),
@@ -147,22 +156,24 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
     };
     const next = [box, ...boxes];
     setExpandedIds((prev) => (prev.includes(box.id) ? prev : [box.id, ...prev]));
-    await persist(next, box.id, true);
+    persistBoxes(next, box.id);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const updateBox = (id: string, patch: Partial<PackingBoxRecord>) => {
-    const next = boxes.map((box) => (box.id === id ? { ...box, ...patch } : box));
-    void persist(next, editingId);
+    persistBoxes(
+      boxes.map((box) => (box.id === id ? { ...box, ...patch } : box)),
+      editingId,
+    );
   };
 
-  const deleteBox = async (id: string) => {
+  const deleteBox = (id: string) => {
     if (boxes.length <= 1) return;
     const filtered = boxes.filter((box) => box.id !== id);
     const ascending = [...filtered].sort((a, b) => a.boxNo - b.boxNo);
     const renumbered = ascending.map((box, index) => ({ ...box, boxNo: index + 1 }));
     const next = sortBoxesNewestFirst(renumbered);
-    await persist(next, editingId === id ? undefined : editingId, true);
+    persistBoxes(next, editingId === id ? undefined : editingId);
     setExpandedIds((prev) => {
       const remaining = prev.filter((x) => x !== id);
       return remaining.length > 0 ? remaining : next[0] ? [next[0].id] : [];
@@ -178,38 +189,39 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
 
   const confirmCarton = () => {
     if (!cartonTargetBoxId || !pendingCartonId) return;
-    updateBox(cartonTargetBoxId, { cartonSpecId: pendingCartonId });
+    const spec = cartonSpecs.find((item) => item.id === pendingCartonId);
+    updateBox(cartonTargetBoxId, {
+      cartonSpecId: pendingCartonId,
+      ...(spec
+        ? {
+            cartonSpecType: spec.type,
+            cartonSpecName: spec.name,
+            cartonSpecUnit: spec.unit,
+            cartonSpecLength: spec.length,
+            cartonSpecWidth: spec.width,
+            cartonSpecHeight: spec.height,
+          }
+        : {}),
+    });
     setCartonSheetVisible(false);
     setCartonTargetBoxId(null);
     setPendingCartonId(undefined);
   };
 
-  const handleSubmit = () => {
-    void runSubmit(async () => {
-      await flushPersist();
-      const targets = boxes.filter((box) => !box.submitted || box.id === editingId);
-      if (targets.length === 0) {
-        showToast('没有可提交的箱子', { duration: 3000 });
-        return;
-      }
-      try {
-        const targetIds = targets.map((box) => box.id);
-        await receivingService.submitPackingRecords(productionColorId, boxes, targetIds);
-        setEditingId(undefined);
-        collapseToFirst(boxes[0]?.id);
-        await refresh();
-        showToast('提交成功', { duration: 3000 });
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === 'EMPTY_FORM') {
-            showToast('不能提交空白表单！', { duration: 3000 });
-          } else if (error.message === 'NO_CARTON') {
-            showToast('箱子未添加尺寸！', { duration: 3000 });
-          }
-        }
-      }
-    });
-  };
+  const handleSubmit = useRecordsSubmit({
+    records: boxes,
+    editingId,
+    setEditingId,
+    collapseToFirst,
+    resetSyncGuards,
+    refresh,
+    runSubmit,
+    submit: (targetIds) =>
+      receivingService.submitPackingRecords(productionColorId, boxes, targetIds),
+    errorMessages: {
+      NO_CARTON: '箱子未添加尺寸！',
+    },
+  });
 
   const totals = useMemo(() => {
     const submitted = boxes.filter((b) => b.submitted);
@@ -255,9 +267,9 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
       <ReceivingOrderInfoCard detail={detail} />
 
       <DashedButton
-        icon={<AddIcon color="#105FC8" height={16} width={16} />}
+        icon={<AddIcon color={designTokens.colors.brand[500]} height={16} width={16} />}
         label="添加装箱记录"
-        onPress={() => void addBox()}
+        onPress={addBox}
         style={styles.dashedBtn}
       />
 
@@ -266,27 +278,17 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
         const isEditing = !box.submitted || editingId === box.id;
         const showEditBtn = expanded && box.submitted && editingId !== box.id;
         const spec = cartonSpecs.find((item) => item.id === box.cartonSpecId);
-        const detailItems = sizes.map((size) => ({
-          key: size,
-          label: size,
-          value: box.sizeQuantities.find((item) => item.size === size)?.quantity ?? 0,
-        }));
+        const detailItems = toSizeDetailItems(sizes, box.sizeQuantities);
 
         let headerRight: ReactNode | undefined;
         if (showEditBtn) {
           headerRight = (
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={8}
+            <RecordCardEditButton
               onPress={() => {
                 setEditingId(box.id);
                 ensureExpanded(box.id);
               }}
-              style={styles.editBtn}
-            >
-              <EditIcon color="#6C829E" height={16} width={16} />
-              <Text style={styles.editText}>编辑</Text>
-            </Pressable>
+            />
           );
         } else if (isEditing) {
           headerRight = (
@@ -304,7 +306,7 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
                 <Pressable
                   accessibilityRole="button"
                   hitSlop={8}
-                  onPress={() => void deleteBox(box.id)}
+                  onPress={() => deleteBox(box.id)}
                   style={styles.deleteBtn}
                 >
                   <DeleteIcon height={16} width={16} />
@@ -314,8 +316,17 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
           );
         }
 
+        const specType = spec?.type ?? box.cartonSpecType;
         const subtitle = spec ? (
           <View style={styles.subtitleRow}>
+            {specType ? (
+              <ReceivingStatusBadge
+                compact
+                outline
+                label={specType === 'brand' ? '品牌' : '通用'}
+                tone={specType === 'brand' ? 'green' : 'orange'}
+              />
+            ) : null}
             <Text style={styles.subtitleText}>({formatCartonDim(spec)})</Text>
             {isEditing ? (
               <Pressable
@@ -384,7 +395,7 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   headerRightText: {
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontSize: 15,
   },
   dashedBtn: {
@@ -395,25 +406,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  editText: {
-    color: '#6C829E',
-    fontSize: 14,
-  },
   deleteBtn: {
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
   linkText: {
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontSize: 14,
-    fontWeight: '600',
   },
   subtitleRow: {
     flexDirection: 'row',
@@ -422,8 +421,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   subtitleText: {
-    fontSize: 13,
-    color: '#6B7A90',
+    fontSize: 17,
+    color: '#061B37',
+    fontWeight: '500',
   },
   fieldLabel: {
     fontSize: 14,

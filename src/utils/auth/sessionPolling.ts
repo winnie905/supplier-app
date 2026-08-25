@@ -6,8 +6,8 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import { SESSION_CHECK_INTERVAL_MS } from '@/constants/auth';
 import { getUserInfo } from '@/services/auth/authService';
-import { useAuthStore } from '@/store/authStore';
-import { getSession } from '@/utils/auth/authStorage';
+import { getAuthGeneration, useAuthStore } from '@/store/authStore';
+import { getSession, peekSessionCache } from '@/utils/auth/authStorage';
 import { buildProductParam, findKickedOfflineError } from '@/utils/auth/sessionError';
 
 let sessionCheckTimer: ReturnType<typeof setInterval> | null = null;
@@ -38,6 +38,8 @@ export const checkSessionOnce = async (): Promise<void> => {
   }
 
   isCheckingSession = true;
+  const generation = getAuthGeneration();
+  let requestToken: string | null = null;
 
   try {
     const session = await getSession();
@@ -46,11 +48,21 @@ export const checkSessionOnce = async (): Promise<void> => {
       return;
     }
 
+    requestToken = session.token;
     const product = buildProductParam(session.products);
     await getUserInfo(product);
   } catch (error) {
     const kickedOffline = findKickedOfflineError(error);
     if (!kickedOffline) {
+      return;
+    }
+
+    if (generation !== getAuthGeneration()) {
+      return;
+    }
+
+    const currentToken = peekSessionCache()?.token;
+    if (!requestToken || !currentToken || currentToken !== requestToken) {
       return;
     }
 

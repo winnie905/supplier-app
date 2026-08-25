@@ -13,6 +13,8 @@ interface ReceivingExceptionSheetProps {
   selectedTypes: string[];
   description: string;
   maxDescriptionLength?: number;
+  /** 默认多选；物料 / 裁床异常上报为单选 */
+  selectionMode?: 'single' | 'multiple';
   onClose: () => void;
   onTypesChange: (types: string[]) => void;
   onDescriptionChange: (text: string) => void;
@@ -27,6 +29,7 @@ export const ReceivingExceptionSheet = ({
   selectedTypes,
   description,
   maxDescriptionLength = 50,
+  selectionMode = 'multiple',
   onClose,
   onTypesChange,
   onDescriptionChange,
@@ -43,6 +46,10 @@ export const ReceivingExceptionSheet = ({
   };
 
   const toggleType = (type: string) => {
+    if (selectionMode === 'single') {
+      onTypesChange(selectedTypes.includes(type) ? [] : [type]);
+      return;
+    }
     if (selectedTypes.includes(type)) {
       onTypesChange(selectedTypes.filter((item) => item !== type));
       return;
@@ -62,16 +69,18 @@ export const ReceivingExceptionSheet = ({
         </FlatButton>
       }
     >
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>异常内容</Text>
-        <View style={styles.tagWrap}>
-          {tags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
+      {tags.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>异常内容</Text>
+          <View style={styles.tagWrap}>
+            {tags.map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>

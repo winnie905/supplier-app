@@ -2,7 +2,7 @@ import { Image, Text } from 'design-system-native';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { authLoginLogoImage } from '@/components/images';
+import { aboutLogoImage } from '@/components/images';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { getAndroidGestureBottomInset } from '@/navigation/androidNavigationBar';
 
@@ -19,7 +19,7 @@ export const AboutSummarySection = ({ appVersion }: AboutSummarySectionProps) =>
   return (
     <View style={styles.container}>
       <View style={styles.summaryContent}>
-        <Image source={authLoginLogoImage} style={styles.logo} />
+        <Image source={aboutLogoImage} style={styles.logo} />
 
         <Text
           style={[

@@ -22,13 +22,13 @@ const styles = StyleSheet.create({
   hello: {
     color: '#0E2D5B',
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 30,
   },
   subtitle: {
     color: '#061B37',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 24,
   },
 });

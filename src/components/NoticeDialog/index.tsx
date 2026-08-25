@@ -1,10 +1,9 @@
-import { Text, VStack } from 'design-system-native';
+import { Modal, Text, VStack } from 'design-system-native';
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet } from 'react-native';
 
 import NoticeIcon from '@/assets/icons/notice.svg';
-import { AppModal } from '@/components/AppModal';
 import { FlatButton } from '@/components/FlatButton';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
@@ -36,7 +35,7 @@ export const NoticeDialog = ({
   const { colors, tokens } = useAppTheme();
 
   return (
-    <AppModal
+    <Modal
       visible={visible}
       onClose={onConfirm}
       animationType="fade"
@@ -55,7 +54,7 @@ export const NoticeDialog = ({
           {confirmText}
         </FlatButton>
       </VStack>
-    </AppModal>
+    </Modal>
   );
 };
 

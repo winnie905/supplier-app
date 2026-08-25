@@ -1,4 +1,4 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
@@ -61,13 +61,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: designTokens.colors.gray[0],
     borderBottomWidth: 0,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F0F3F7',
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
@@ -83,14 +83,14 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '90deg' }],
   },
   title: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#021626',
+    fontSize: 17,
+    fontWeight: '500',
+    color: '#061B37',
   },
   body: {
     padding: 16,
     gap: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
   },

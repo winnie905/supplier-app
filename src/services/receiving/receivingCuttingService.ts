@@ -1,101 +1,57 @@
+import { EXCEPTION_MODULE_LABELS } from '@/constants/receiving';
 import { cropOrderService } from '@/services/apps/cropOrderService';
 import { buildCropOrderPayload, mapCropOrderToCuttingRecords } from '@/services/apps/mapCropOrder';
-import { mapExceptionRecordToFactoryException } from '@/services/apps/mapReceivingProductionOrder';
 import { productionOrderService } from '@/services/apps/productionOrderService';
-import { getProductionColorById } from '@/services/receiving/mockCatalog';
 import {
-  createId,
-  isSupplierProductionId,
-  resolveSupplierDetail,
-  seedInitialRecords,
+  buildCuttingExceptionModuleExtend,
+  mapExceptionRecordToFactoryException,
+} from '@/services/receiving/mapReceivingProductionOrder';
+import {
+  currentExceptionReporter,
+  fetchFreshSupplierDetail,
+  resolveProductionId,
   sumQuantities,
   toWorkshopProductionRef,
-  withState,
 } from '@/services/receiving/receivingServiceShared';
+import { uniqueSizeNames } from '@/services/receiving/sizeQuantity';
+import {
+  persistWorkshopOrder,
+  requireSupplierDetail,
+  resolveWorkshopOrder,
+} from '@/services/receiving/workshopOrderWrite';
 import type { CuttingBedRecord, CuttingRecordsData, FactoryException } from '@/types/receiving';
-import { sizeNamesFromRange } from '@/types/receiving';
-import { loadReceivingState, saveReceivingState } from '@/utils/receiving/storage';
 
 export const receivingCuttingService = {
+  /** 读取裁床记录：优先用生产单详情内嵌 Preview，未提交草稿由页面内存维护 */
   async getCuttingRecords(productionColorId: string): Promise<CuttingRecordsData> {
-    const state = await loadReceivingState();
-    const supplierDetail = await resolveSupplierDetail(productionColorId);
-    const legacyDetail = getProductionColorById(productionColorId);
-    if (!supplierDetail && !legacyDetail) throw new Error('生产色不存在');
+    const supplierDetail = await requireSupplierDetail(productionColorId);
 
-    // 统计（按生产单号）
-    if (supplierDetail?.productionOrderCode) {
-      await cropOrderService.getStatistic({
-        productionOrderCode: supplierDetail.productionOrderCode,
-      });
+    const existing = resolveWorkshopOrder(supplierDetail, 'cropOrder');
+    if (existing) {
+      return mapCropOrderToCuttingRecords(existing, productionColorId);
     }
-
-    if (isSupplierProductionId(productionColorId)) {
-      const orderId = Number(productionColorId);
-      const existing = await cropOrderService.tryGetById(orderId);
-      const fromApi = existing
-        ? mapCropOrderToCuttingRecords(existing, productionColorId)
-        : {
-            productionColorId,
-            beds: [] as CuttingBedRecord[],
-            quantity: supplierDetail?.customerPurchaseOrder?.quantity ?? 0,
-            sizes: supplierDetail?.customerPurchaseOrder?.sizeRange?.map((item) => item.name) ?? [],
-          };
-
-      const localBeds = state.cuttingBeds[productionColorId] ?? [];
-      const apiIds = new Set(fromApi.beds.map((bed) => bed.id));
-      const drafts = localBeds.filter((bed) => !bed.submitted && !apiIds.has(bed.id));
-      const beds = [...fromApi.beds, ...drafts];
-
-      state.cuttingBeds[productionColorId] = beds;
-      await saveReceivingState(state);
-
-      return {
-        ...fromApi,
-        beds,
-        ...(state.cuttingEditingBedId[productionColorId]
-          ? { editingBedId: state.cuttingEditingBedId[productionColorId] }
-          : {}),
-      };
-    }
-
-    if (legacyDetail) {
-      seedInitialRecords(state, productionColorId);
-    }
-    state.cuttingBeds[productionColorId] ??= [];
-    await saveReceivingState(state);
 
     return {
       productionColorId,
-      beds: state.cuttingBeds[productionColorId],
-      ...(state.cuttingEditingBedId[productionColorId]
-        ? { editingBedId: state.cuttingEditingBedId[productionColorId] }
-        : {}),
-      quantity: legacyDetail?.quantity ?? 0,
-      sizes: legacyDetail ? sizeNamesFromRange(legacyDetail.sizeRange) : [],
+      beds: [],
+      quantity: supplierDetail.customerPurchaseOrder?.quantity ?? 0,
+      sizes: uniqueSizeNames(
+        supplierDetail.customerPurchaseOrder?.sizeRange?.map((item) => item.name) ?? [],
+      ),
     };
-  },
-
-  async saveCuttingDraft(
-    productionColorId: string,
-    beds: CuttingBedRecord[],
-    editingBedId?: string,
-  ): Promise<void> {
-    await withState((state) => {
-      state.cuttingBeds[productionColorId] = beds;
-      state.cuttingEditingBedId[productionColorId] = editingBedId;
-    });
   },
 
   /**
    * 提交裁床记录：无已提交记录 → create；有 → update。
-   * 入参为页面当前全部床次（含待提交），方法内校验并标记目标床次后落库。
+   * 入参为页面当前全部床次（含待提交），方法内校验并标记目标床次后写后端。
    */
   async submitCuttingRecords(
     productionColorId: string,
     beds: CuttingBedRecord[],
     targetIds: string[],
   ): Promise<CuttingRecordsData> {
+    const supplierDetail = await requireSupplierDetail(productionColorId);
+
     const now = new Date().toISOString();
     const nextBeds = beds.map((bed) => {
       if (!targetIds.includes(bed.id)) return bed;
@@ -106,46 +62,24 @@ export const receivingCuttingService = {
       return { ...bed, submitted: true, submittedAt: bed.submittedAt ?? now };
     });
 
-    const state = await loadReceivingState();
-    state.cuttingBeds[productionColorId] = nextBeds;
-    state.cuttingEditingBedId[productionColorId] = undefined;
-    await saveReceivingState(state);
+    // 提交前刷新详情，确保拿到最新 cropOrder Preview
+    const freshDetail = await fetchFreshSupplierDetail(supplierDetail);
+    const existing = resolveWorkshopOrder(freshDetail, 'cropOrder');
+    const payload = buildCropOrderPayload({
+      existing,
+      beds: nextBeds,
+      productionOrder: toWorkshopProductionRef(freshDetail),
+    });
 
-    if (isSupplierProductionId(productionColorId)) {
-      const orderId = Number(productionColorId);
-      const existing = await cropOrderService.tryGetById(orderId);
-      const supplierDetail = await resolveSupplierDetail(productionColorId);
-      const payload = buildCropOrderPayload({
-        existing,
-        orderId,
-        beds: nextBeds,
-        ...(supplierDetail ? { productionOrder: toWorkshopProductionRef(supplierDetail) } : {}),
-      });
-      const hadSubmittedBefore = (existing?.cropOrderStorage?.cropProcesses?.length ?? 0) > 0;
-      if (hadSubmittedBefore) {
-        await cropOrderService.update(payload);
-      } else {
-        await cropOrderService.create(payload);
-      }
-      if (supplierDetail?.productionOrderCode) {
-        await cropOrderService.getStatistic({
-          productionOrderCode: supplierDetail.productionOrderCode,
-        });
-      }
-    }
+    await persistWorkshopOrder({
+      detail: freshDetail,
+      existing,
+      payload,
+      service: cropOrderService,
+      key: 'cropOrder',
+    });
 
     return receivingCuttingService.getCuttingRecords(productionColorId);
-  },
-
-  /** @deprecated 请用 submitCuttingRecords；保留兼容单床次调用 */
-  async submitCuttingBed(productionColorId: string, bedId: string): Promise<CuttingBedRecord> {
-    const state = await loadReceivingState();
-    const beds = state.cuttingBeds[productionColorId] ?? [];
-    await receivingCuttingService.submitCuttingRecords(productionColorId, beds, [bedId]);
-    const refreshed = await receivingCuttingService.getCuttingRecords(productionColorId);
-    const bed = refreshed.beds.find((item) => item.id === bedId);
-    if (!bed) throw new Error('床次不存在');
-    return bed;
   },
 
   async submitCuttingException(input: {
@@ -153,31 +87,20 @@ export const receivingCuttingService = {
     type: string;
     description: string;
   }): Promise<FactoryException> {
-    if (isSupplierProductionId(input.productionColorId)) {
-      const record = await productionOrderService.createExceptionRecord({
-        productionId: Number(input.productionColorId),
-        module: 'cutting',
-        type: input.type,
-        reportContent: input.description,
-        reporter: { id: 1, username: 'factory', firstName: '工', lastName: '厂' },
-      });
-      return mapExceptionRecordToFactoryException(record, input.productionColorId);
+    const productionId = await resolveProductionId(input.productionColorId);
+    if (productionId == null) {
+      throw new Error('生产色不存在');
     }
 
-    return withState((state) => {
-      const exception: FactoryException = {
-        id: createId('exc'),
-        productionColorId: input.productionColorId,
-        module: 'cutting',
-        type: input.type,
-        status: 'pending',
-        reporter: '当前用户',
-        reportedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
-        content: '裁床异常',
+    const record = await productionOrderService.createExceptionRecord({
+      productionId,
+      module: EXCEPTION_MODULE_LABELS.cutting,
+      type: input.type,
+      reporter: currentExceptionReporter(),
+      moduleExtend: buildCuttingExceptionModuleExtend({
         description: input.description,
-      };
-      state.exceptions.push(exception);
-      return exception;
+      }),
     });
+    return mapExceptionRecordToFactoryException(record, input.productionColorId);
   },
 };

@@ -73,7 +73,7 @@ export const PrivacyPolicy = ({
       } as TextStyle,
       strong: {
         color: colors.text,
-        fontWeight: '700',
+        fontWeight: '800',
       } as TextStyle,
     }),
     [colors.text],

@@ -1,10 +1,11 @@
-import { Pressable, Text } from 'design-system-native';
-import { useId } from 'react';
+import { designTokens, Pressable, Text } from 'design-system-native';
+import { memo, useCallback, useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import CaretRightIcon from '@/assets/icons/caretRight.svg';
 import type { ProductionOrderTab, ProductionOrderTabStat } from '@/types/apps';
+import { formatCount } from '@/utils/number';
 
 interface ProductionOrderStatusTabsProps {
   activeTab: ProductionOrderTab;
@@ -21,9 +22,13 @@ const TABS: { key: ProductionOrderTab; label: string }[] = [
   { key: 'overdue', label: '超期' },
 ];
 
-const formatCount = (value: number) => value.toLocaleString('en-US');
-
-const TabChrome = ({ active, gradientId }: { active: boolean; gradientId: string }) => {
+const TabChrome = memo(function TabChrome({
+  active,
+  gradientId,
+}: {
+  active: boolean;
+  gradientId: string;
+}) {
   const fillId = `${gradientId}-fill`;
   const strokeId = `${gradientId}-stroke`;
 
@@ -39,12 +44,12 @@ const TabChrome = ({ active, gradientId }: { active: boolean; gradientId: string
           <>
             <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor="#EAF7FF" />
-              <Stop offset="0.37" stopColor="#FFFFFF" />
-              <Stop offset="1" stopColor="#FFFFFF" />
+              <Stop offset="0.37" stopColor={designTokens.colors.gray[0]} />
+              <Stop offset="1" stopColor={designTokens.colors.gray[0]} />
             </LinearGradient>
             <LinearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
-              <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+              <Stop offset="0" stopColor={designTokens.colors.gray[0]} stopOpacity="1" />
+              <Stop offset="1" stopColor={designTokens.colors.gray[0]} stopOpacity="0" />
             </LinearGradient>
           </>
         )}
@@ -66,53 +71,84 @@ const TabChrome = ({ active, gradientId }: { active: boolean; gradientId: string
       />
     </Svg>
   );
-};
+});
 
-export const ProductionOrderStatusTabs = ({
+const StatusTabItem = memo(function StatusTabItem({
+  tabKey,
+  label,
+  active,
+  orderCount,
+  pieceCount,
+  gradientId,
+  onPress,
+}: {
+  tabKey: ProductionOrderTab;
+  label: string;
+  active: boolean;
+  orderCount: number;
+  pieceCount: number;
+  gradientId: string;
+  onPress: (tab: ProductionOrderTab) => void;
+}) {
+  const handlePress = useCallback(() => {
+    if (!active) onPress(tabKey);
+  }, [active, onPress, tabKey]);
+
+  return (
+    <View style={styles.tabWrap}>
+      {active ? (
+        <View style={styles.pointerWrap} pointerEvents="none">
+          <CaretRightIcon width={20} height={20} color="#0063E7" style={styles.pointerIcon} />
+        </View>
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={handlePress}
+        style={[styles.tab, active ? styles.tabActive : null]}
+      >
+        <TabChrome active={active} gradientId={gradientId} />
+
+        <Text style={[styles.label, active ? styles.labelActive : null]}>{label}</Text>
+        <Text style={[styles.countRow, active ? styles.countRowActive : null]}>
+          <Text style={[styles.countNum, active ? styles.countNumActive : null]}>{orderCount}</Text>
+          <Text style={[styles.countUnit, active ? styles.countUnitActive : null]}>单</Text>
+        </Text>
+        <Text style={[styles.pieces, active ? styles.piecesActive : null]}>
+          {formatCount(pieceCount)}件
+        </Text>
+      </Pressable>
+    </View>
+  );
+});
+
+export const ProductionOrderStatusTabs = memo(function ProductionOrderStatusTabs({
   activeTab,
   tabStats,
   onChange,
-}: ProductionOrderStatusTabsProps) => {
+}: ProductionOrderStatusTabsProps) {
   const reactId = useId().replace(/:/g, '');
 
   return (
     <View style={styles.row}>
       {TABS.map((tab) => {
-        const active = tab.key === activeTab;
         const stat = tabStats[tab.key];
-
         return (
-          <View key={tab.key} style={styles.tabWrap}>
-            {active ? (
-              <View style={styles.pointerWrap} pointerEvents="none">
-                <CaretRightIcon width={20} height={20} color="#0063E7" style={styles.pointerIcon} />
-              </View>
-            ) : null}
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => onChange(tab.key)}
-              style={[styles.tab, active ? styles.tabActive : null]}
-            >
-              <TabChrome active={active} gradientId={`${reactId}-${tab.key}`} />
-
-              <Text style={[styles.label, active ? styles.labelActive : null]}>{tab.label}</Text>
-              <Text style={[styles.countRow, active ? styles.countRowActive : null]}>
-                <Text style={[styles.countNum, active ? styles.countNumActive : null]}>
-                  {stat.orderCount}
-                </Text>
-                <Text style={[styles.countUnit, active ? styles.countUnitActive : null]}>单</Text>
-              </Text>
-              <Text style={[styles.pieces, active ? styles.piecesActive : null]}>
-                {formatCount(stat.pieceCount)}件
-              </Text>
-            </Pressable>
-          </View>
+          <StatusTabItem
+            key={tab.key}
+            tabKey={tab.key}
+            label={tab.label}
+            active={tab.key === activeTab}
+            orderCount={Number(stat.orderCount ?? 0)}
+            pieceCount={Number(stat.pieceCount ?? 0)}
+            gradientId={`${reactId}-${tab.key}`}
+            onPress={onChange}
+          />
         );
       })}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   row: {
@@ -130,8 +166,8 @@ const styles = StyleSheet.create({
     height: TAB_SIZE,
     borderRadius: 8,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    gap: 4,
+    paddingHorizontal: 10,
+    gap: 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -151,14 +187,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   labelActive: {
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   countRow: {
     textAlign: 'center',
     color: '#111F3E',
   },
   countRowActive: {
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   countNum: {
     fontSize: 24,
@@ -166,7 +202,7 @@ const styles = StyleSheet.create({
     color: '#111F3E',
   },
   countNumActive: {
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   countUnit: {
     fontSize: 14,
@@ -174,7 +210,7 @@ const styles = StyleSheet.create({
     color: '#111F3E',
   },
   countUnitActive: {
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
   },
   pieces: {
     fontSize: 14,

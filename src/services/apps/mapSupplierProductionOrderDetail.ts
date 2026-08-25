@@ -1,0 +1,152 @@
+import {
+  emptyUser,
+  mapColorStatusToProductionStatus,
+} from '@/services/apps/mapSupplierProductionOrderHelpers';
+import {
+  type Brand,
+  MaterialBulkPurchaseOrderStatus,
+  OrderStatus,
+  ProductionOrderStatus,
+  type ProductionOrderVO,
+  type TemplateDesign,
+} from '@/types/productionOrder';
+import type { ProductionOrderSupplierDetail } from '@/types/supplierProductionOrder';
+
+export const mapDetailToProductionOrderVO = (
+  detail: ProductionOrderSupplierDetail,
+): ProductionOrderVO => {
+  const follower = emptyUser(detail.customerPurchaseOrder?.productionFollower);
+  const brandSource = detail.customerPurchaseOrder?.brand ?? detail.templateDesign?.brand;
+  const brand: Brand | undefined = brandSource
+    ? {
+        name: brandSource.name,
+        customerId: brandSource.customerId ?? 0,
+        ...(brandSource.id != null ? { id: brandSource.id } : {}),
+      }
+    : undefined;
+
+  const templateDesign: TemplateDesign = {
+    customerCode: detail.templateDesign?.customerCode ?? '',
+    type: detail.templateDesign?.type ?? 'bulk',
+    designImageUrls: detail.templateDesign?.designImageUrls ?? [],
+    developmentType: detail.orderType ?? 'FOB',
+    category: detail.templateDesign?.category ?? '',
+    ...(detail.templateDesign?.code != null ? { code: detail.templateDesign.code } : {}),
+    ...(brand ? { brand } : {}),
+  };
+
+  return {
+    id: detail.id,
+    code: detail.code ?? '',
+    type: detail.type ?? '',
+    color: detail.color,
+    purchaseCode: detail.purchaseCode ?? '',
+    status: mapColorStatusToProductionStatus(detail.status),
+    totalOutboundQuantity: 0,
+    totalPurchasePrice: 0,
+    saleOrderCode: detail.saleOrderCode ?? '',
+    orderStatus: ProductionOrderStatus.Pending,
+    materialStatus: MaterialBulkPurchaseOrderStatus.Pending,
+    nonReplenishBulkOrderStatus: MaterialBulkPurchaseOrderStatus.Pending,
+    productionType: detail.productionType ?? '',
+    productionOrderCode: detail.productionOrderCode,
+    comment: detail.comment ?? '',
+    factoryPlanedProductionDate: detail.factoryPlanedProductionDate ?? '',
+    factory: {
+      name: detail.factory?.name ?? '',
+      ...(detail.factory?.id != null ? { id: detail.factory.id } : {}),
+      ...(detail.factory?.fullName != null ? { fullName: detail.factory.fullName } : {}),
+      ...(detail.factory?.phone != null ? { phone: detail.factory.phone } : {}),
+      ...(detail.factory?.contact != null ? { contact: detail.factory.contact } : {}),
+    },
+    receiveWarehouse: {
+      name: detail.receiveWarehouse?.name ?? '',
+      ...(detail.receiveWarehouse?.id != null ? { id: detail.receiveWarehouse.id } : {}),
+      ...(detail.receiveWarehouse?.contact != null
+        ? { contact: detail.receiveWarehouse.contact }
+        : {}),
+      ...(detail.receiveWarehouse?.phone != null ? { phone: detail.receiveWarehouse.phone } : {}),
+    },
+    rmbUnitPrice: 0,
+    rmbPrice: 0,
+    externalRmbUnitPrice: 0,
+    externalRmbPrice: 0,
+    externalUnitPrice: 0,
+    externalPrice: 0,
+    secondaryProcessPrice: 0,
+    externalCurrency: 'CNY',
+    externalCurrencyRate: 1,
+    orderType: detail.orderType ?? 'FOB',
+    createdAt: detail.createdAt ?? '',
+    updatedAt: detail.updatedAt ?? '',
+    customerPurchaseOrder: {
+      saleOrderCode: detail.customerPurchaseOrder?.saleOrderCode ?? '',
+      ingredient: '',
+      colorCode: detail.customerPurchaseOrder?.colorCode ?? '',
+      code: detail.customerPurchaseOrder?.code ?? detail.code ?? '',
+      type: detail.customerPurchaseOrder?.type ?? detail.type ?? '',
+      color: detail.customerPurchaseOrder?.color ?? detail.color,
+      saleOrderDate: '',
+      purchaseCode: detail.purchaseCode ?? '',
+      unitPrice: 0,
+      rmbUnitPrice: 0,
+      isUnderApproval: false,
+      currencyRate: 1,
+      currency: 'CNY',
+      refPurchaseCode: '',
+      customerPO: detail.customerPurchaseOrder?.customerPO ?? '',
+      firstClothOutboundOrderStatus: 'Created',
+      firstActualOutboundDate: '',
+      saleComment: '',
+      destination: '',
+      deliveryMethod: '',
+      inspectionMethod: '',
+      inspectionDescription: '',
+      inspectionRate: '',
+      ingredientDescription: '',
+      customerComment: '',
+      productCode: detail.customerPurchaseOrder?.productCode ?? '',
+      sizeRange: (detail.customerPurchaseOrder?.sizeRange ?? []).map((item) => ({
+        name: item.name,
+        ...(item.quantity != null ? { quantity: item.quantity } : {}),
+        ...(item.outboundQuantity != null ? { outboundQuantity: item.outboundQuantity } : {}),
+      })),
+      quantity: detail.customerPurchaseOrder?.quantity ?? 0,
+      customerColor: detail.customerPurchaseOrder?.color ?? detail.color,
+      quoteStatus: OrderStatus.OrderCreated,
+      saleOrderStatus: OrderStatus.OrderCreated,
+      productionOrderStatus: OrderStatus.OrderCreated,
+      requiredProductionDate: detail.customerPurchaseOrder?.requiredProductionDate ?? '',
+      createdAt: detail.createdAt ?? '',
+      updatedAt: detail.updatedAt ?? '',
+      businessFollower: emptyUser(detail.customerPurchaseOrder?.businessFollower),
+      department: { id: '', name: '', parentId: null, type: '' },
+      group: { id: '', name: '', parentId: null, type: '' },
+      productionFollower: follower,
+      brand: brand ?? { name: '', customerId: 0 },
+    },
+    templateDesign,
+    shipInformation: '',
+    cropOrder: detail.cropOrder?.id != null ? { id: detail.cropOrder.id } : {},
+    template: {
+      ...(detail.template?.frontImages?.length ? { frontImages: detail.template.frontImages } : {}),
+      ...(detail.template?.backImages?.length ? { backImages: detail.template.backImages } : {}),
+    },
+    user: follower,
+    lastUpdater: follower,
+    bomItems: (detail.bomItems ?? []).map((item) => ({
+      id: item.id,
+      name: item.name ?? item.material?.name ?? '',
+      type: item.type ?? '',
+      magnification: 0,
+      price: 0,
+      unitPrice: 0,
+      ...(item.material?.id != null ? { materialId: item.material.id } : {}),
+      ...(item.material?.code != null ? { materialCode: item.material.code } : {}),
+      ...(item.materialColor != null ? { materialColor: item.materialColor } : {}),
+      ...(item.supplierName != null ? { supplierName: item.supplierName } : {}),
+    })),
+    productionProcesses: [],
+    secondaryProcesses: [],
+  };
+};

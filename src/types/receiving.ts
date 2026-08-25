@@ -31,7 +31,7 @@ export interface ModuleStatusSummary {
  * 字段命名对齐 erp-web ProductionOrderVO（一条 VO = 一个生产色）。
  */
 export interface ProductionColorSummary {
-  /** 对应 ProductionOrderVO.id（路由/存储仍用 string；mock 暂用 legacy color id） */
+  /** 生产色复合 id：生产单号::颜色 */
   id: string;
   productionOrderCode: string;
   productCode: string;
@@ -70,7 +70,11 @@ export interface MaterialItem {
   groupName: string;
   name: string;
   color?: string;
+  /** 数量数值（meters / usage / formula） */
   quantity?: string;
+  /** 数量与幅宽共用单位，来自 bomItem.unit */
+  unit?: string;
+  /** 幅宽数值 */
   width?: string;
   supplier?: string;
   statuses: MaterialItemStatus[];
@@ -88,15 +92,25 @@ export interface FactoryException {
   id: string;
   productionColorId: string;
   module: ExceptionModule;
+  /** 异常模块展示名：物料齐备 / 裁床 */
+  moduleLabel: string;
   type: string;
   status: ExceptionReplyStatus;
   reporter: string;
   reportedAt: string;
+  /**
+   * 异常内容展示：
+   * - 物料：【物料齐备】物料名、…
+   * - 裁床：【裁床】
+   */
   content: string;
+  /** 问题描述正文（不含异常类型前缀；UI 拼成【类型】描述） */
   description: string;
   replyContent?: string;
   repliedAt?: string;
   relatedItemIds?: string[];
+  /** 已选物料名称（供展示；web 也可直接读 moduleExtend.relatedItems） */
+  relatedItemNames?: string[];
   images?: string[];
 }
 
@@ -124,6 +138,10 @@ export interface SewingDayRecord {
   downQuantities: SizeQuantity[];
   submitted: boolean;
   submittedAt?: string;
+  /** 后端上数工序 id；本地草稿无 */
+  upProcessId?: string;
+  /** 后端下数工序 id；本地草稿无 */
+  downProcessId?: string;
 }
 
 export interface SewingRecordsData {
@@ -139,6 +157,7 @@ export interface CartonSpec {
   length: number;
   width: number;
   height: number;
+  unit: string;
   type: CartonSpecType;
   tag?: string;
 }
@@ -147,6 +166,14 @@ export interface PackingBoxRecord {
   id: string;
   boxNo: number;
   cartonSpecId?: string;
+  /** 选箱时写入，提交时映射 BrandBox / CommonBox */
+  cartonSpecType?: CartonSpecType;
+  /** 提交 boxSpecification 必填；选箱 / 回显时写入 */
+  cartonSpecName?: string;
+  cartonSpecUnit?: string;
+  cartonSpecLength?: number;
+  cartonSpecWidth?: number;
+  cartonSpecHeight?: number;
   weightKg: number;
   sizeQuantities: SizeQuantity[];
   submitted: boolean;
@@ -160,14 +187,6 @@ export interface PackingRecordsData {
   sizes: string[];
 }
 
-export interface MaterialDraft {
-  selectedIds: string[];
-}
-
-export interface ReceivingDrafts {
-  material: Record<string, MaterialDraft>;
-}
-
 export interface ReceivingPersistedState {
   selectedProductionColorId: string | null;
   materialItems: Record<string, MaterialItem[]>;
@@ -178,6 +197,3 @@ export interface ReceivingPersistedState {
   packingEditingBoxId: Record<string, string | undefined>;
   exceptions: FactoryException[];
 }
-
-export const sizeNamesFromRange = (sizeRange: SizeRange[]): string[] =>
-  sizeRange.map((item) => item.name);

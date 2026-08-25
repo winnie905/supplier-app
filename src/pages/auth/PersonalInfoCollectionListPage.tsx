@@ -100,11 +100,7 @@ export const PersonalInfoCollectionListPage = (_props: PersonalInfoCollectionLis
         showsVerticalScrollIndicator={false}
         style={styles.container}
       >
-        <ComplianceTable
-          columns={columns}
-          dataSource={rows}
-          rowKey="key"
-        />
+        <ComplianceTable columns={columns} dataSource={rows} rowKey="key" />
       </ScrollView>
     </Box>
   );

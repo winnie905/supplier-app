@@ -2,7 +2,9 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
+import { useCareModeStore } from '@/store/careModeStore';
 import { logger } from '@/utils/app';
+import { setCareModeFontBoostEnabled } from '@/utils/careMode/fontBoost';
 
 export const useAppInitialization = () => {
   const isReady = useAppStore((state) => state.isReady);
@@ -14,6 +16,8 @@ export const useAppInitialization = () => {
 
     const bootstrap = async () => {
       try {
+        await useCareModeStore.getState().hydrate();
+        setCareModeFontBoostEnabled(useCareModeStore.getState().enabled);
         await restoreSession();
       } catch (error) {
         logger.info('App bootstrap failed', error);

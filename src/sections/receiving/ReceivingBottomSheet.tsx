@@ -31,8 +31,9 @@ export const ReceivingBottomSheet = ({
       title={title}
       onClose={onClose}
       footer={footer}
-      height={maxHeight}
-      sheetStyle={styles.sheet}
+      // 高度跟随内容，超过上限后再滚动
+      height="auto"
+      sheetStyle={[styles.sheet, { maxHeight }]}
       headerStyle={styles.header}
       titleStyle={styles.title}
       contentContainerStyle={styles.bodyContent}

@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ComponentType } from 'react';
 
 import { withStackScreenLayout } from '@/navigation/stackScreenOptions';
+import type { ReceivingBackgroundVariant } from '@/sections/receiving/ReceivingScreenBackground';
 import { ReceivingScreenShell } from '@/sections/receiving/ReceivingScreenBackground';
 
 /**
@@ -11,9 +12,12 @@ import { ReceivingScreenShell } from '@/sections/receiving/ReceivingScreenBackgr
 export function withReceivingStackScreenLayout<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList,
->(Screen: ComponentType<NativeStackScreenProps<ParamList, RouteName>>) {
+>(
+  Screen: ComponentType<NativeStackScreenProps<ParamList, RouteName>>,
+  options?: { variant?: ReceivingBackgroundVariant },
+) {
   const ScreenWithBackground = (props: NativeStackScreenProps<ParamList, RouteName>) => (
-    <ReceivingScreenShell>
+    <ReceivingScreenShell variant={options?.variant ?? 'home'}>
       <Screen {...props} />
     </ReceivingScreenShell>
   );

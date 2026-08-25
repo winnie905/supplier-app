@@ -1,4 +1,4 @@
-import { Pressable, Text } from 'design-system-native';
+import { ClearableInput, Pressable, Text } from 'design-system-native';
 import countries from 'i18n-iso-countries';
 import en from 'i18n-iso-countries/langs/en.json';
 import zh from 'i18n-iso-countries/langs/zh.json';
@@ -12,7 +12,6 @@ import {
 import { useMemo, useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { ClearableInput } from '@/components/ClearableInput';
 import { SelectionModal, type SelectionModalOption } from '@/components/SelectionModal';
 
 countries.registerLocale(zh);
@@ -92,7 +91,16 @@ const toPhoneValue = (text: string, country: PhoneCountryCode) => {
 
 export const isValidPhoneNumberByCountry = (value: string, country: PhoneCountryCode) => {
   const phone = parsePhoneNumberFromString(value, country);
-  return phone?.isValid() ?? false;
+  if (!phone?.isValid()) {
+    return false;
+  }
+
+  // 区号 +86：手机号必须为 11 位
+  if (getCountryCallingCode(country) === '86') {
+    return /^\d{11}$/.test(phone.nationalNumber);
+  }
+
+  return true;
 };
 
 export const PhoneNumberField = ({
@@ -123,6 +131,13 @@ export const PhoneNumberField = ({
   }, [country, value]);
 
   const handleTextChange = (text: string) => {
+    // 区号 +86：仅允许输入最多 11 位数字
+    if (getCountryCallingCode(country) === '86') {
+      const digits = text.replace(/\D/g, '').slice(0, 11);
+      onChange(toPhoneValue(digits, country));
+      return;
+    }
+
     onChange(toPhoneValue(text, country));
   };
 
@@ -156,6 +171,7 @@ export const PhoneNumberField = ({
         <ClearableInput
           disabled={disabled}
           keyboardType="phone-pad"
+          maxLength={getCountryCallingCode(country) === '86' ? 11 : undefined}
           onBlur={onBlur}
           onChangeText={handleTextChange}
           placeholder={resolvedPlaceholder}
@@ -185,8 +201,9 @@ export const PhoneNumberField = ({
 const styles = StyleSheet.create({
   field: {
     width: '100%',
-    height: 52,
-    paddingRight: 0,
+    height: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: '#F5F8FD',
     flexDirection: 'row',
@@ -198,11 +215,12 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 0,
     backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
-
   phoneInputField: {
-    paddingLeft: 0,
-    paddingRight: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   disabled: {
     opacity: 0.6,

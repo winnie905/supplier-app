@@ -1,21 +1,13 @@
+import { designTokens, Modal, useToast } from 'design-system-native';
 import { getCountryCallingCode } from 'libphonenumber-js/min';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  InteractionManager,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, InteractionManager, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
-import { AppModal } from '@/components/AppModal';
 import type { PhoneCountryCode } from '@/components/PhoneNumberField';
 import { getCallingCodeText, isValidPhoneNumberByCountry } from '@/components/PhoneNumberField';
-import { useToast } from '@/components/toast/Toast';
 import { DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE } from '@/constants/auth';
 import { ROUTES } from '@/constants/routes';
-import { useTncConsent } from '@/hooks/tnc/useTncConsent';
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import type { AuthScreenProps } from '@/navigation/types';
 import { LoginAgreementSection } from '@/sections/auth/login/LoginAgreementSection';
 import { LoginHeroSection } from '@/sections/auth/login/LoginHeroSection';
@@ -34,12 +26,13 @@ import { getErrorMessage, isValidEmailFormat } from '@/utils/form';
 
 const CODE_COUNTDOWN_SECONDS = 60;
 
-const buildPendingUserId = (account: string) => `pending-user:${account.trim().toLowerCase()}`;
-
 type LoginPageProps = AuthScreenProps<'Login'>;
 
+/** 未勾选协议时被弹窗拦下的动作，同意后继续执行 */
+type ConsentPendingAction = 'sendCode' | 'login';
+
 export const LoginPage = ({ navigation }: LoginPageProps) => {
-  const { showToast } = useToast();
+  const toast = useToast();
   const { loginByOtp, sendOtpCode, loading: isAuthLoading } = useLogin();
   const sessionExpiredMessage = useAuthStore((state) => state.sessionExpiredMessage);
   const consumeSessionExpiredMessage = useAuthStore((state) => state.consumeSessionExpiredMessage);
@@ -53,13 +46,17 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
   const [codeError, setCodeError] = useState('');
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [agreementModalOpen, setAgreementModalOpen] = useState(false);
+  const [consentPendingAction, setConsentPendingAction] = useState<ConsentPendingAction | null>(
+    null,
+  );
   const [sessionExpiredModalVisible, setSessionExpiredModalVisible] = useState(false);
   const [phoneCountry, setPhoneCountry] = useState<PhoneCountryCode>('CN');
   const [emailCountdown, setEmailCountdown] = useState(0);
   const [phoneCountdown, setPhoneCountdown] = useState(0);
   const emailCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const phoneCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight();
 
   const isPhoneMode = loginMode === 'phone';
   const countdown = isPhoneMode ? phoneCountdown : emailCountdown;
@@ -81,17 +78,7 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     () => (isPhoneMode ? getCountryCallingCode(phoneCountry) : undefined),
     [isPhoneMode, phoneCountry],
   );
-  const pendingUserId = loginAccount ? buildPendingUserId(loginAccount) : null;
   const busy = isSendingCode || isSigningIn || isAuthLoading;
-
-  const {
-    confirmConsent,
-    isSubmitting: isPersistingConsent,
-    refresh,
-  } = useTncConsent({
-    userId: pendingUserId,
-    enabled: !!pendingUserId,
-  });
 
   useEffect(() => {
     if (!sessionExpiredMessage) {
@@ -175,6 +162,22 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     };
   }, [phoneCountdown > 0]); // eslint-disable-line react-hooks/exhaustive-deps -- restart timer when countdown begins
 
+  // 键盘弹起时滚到底，保证登录按钮露在键盘上方（Android adjustNothing）
+  useEffect(() => {
+    if (keyboardHeight <= 0) {
+      return;
+    }
+
+    const timer = setTimeout(
+      () => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      },
+      Platform.OS === 'ios' ? 48 : 80,
+    );
+
+    return () => clearTimeout(timer);
+  }, [keyboardHeight]);
+
   const isAccountFormatValid = useMemo(() => {
     if (!trimmedAccount) {
       return false;
@@ -245,14 +248,8 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     setLoginMode(mode);
   };
 
-  const handleGetCode = async () => {
-    const formatError = validateAccountFormat();
-
-    if (formatError) {
-      setAccountError(formatError);
-      return;
-    }
-
+  /** 发送验证码；调用前已完成格式校验与协议确认 */
+  const sendVerificationCode = async () => {
     setIsSendingCode(true);
     setAccountError('');
 
@@ -269,7 +266,7 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
         } else {
           setEmailCountdown(CODE_COUNTDOWN_SECONDS);
         }
-        showToast('验证码已发送');
+        toast.show({ title: '验证码已发送' });
       } else {
         Alert.alert('提示', '验证码发送失败，请稍后重试');
       }
@@ -278,6 +275,22 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
     } finally {
       setIsSendingCode(false);
     }
+  };
+
+  const handleGetCode = () => {
+    const formatError = validateAccountFormat();
+
+    if (formatError) {
+      setAccountError(formatError);
+      return;
+    }
+
+    if (!agreed) {
+      setConsentPendingAction('sendCode');
+      return;
+    }
+
+    void sendVerificationCode();
   };
 
   const rememberLoginAccountSafely = async () => {
@@ -308,7 +321,8 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
       });
       void rememberLoginAccountSafely();
     } catch (error) {
-      Alert.alert('提示', getErrorMessage(error));
+      // 验证码校验失败：展示在输入框下方，不弹窗
+      setCodeError(getErrorMessage(error));
     } finally {
       setIsSigningIn(false);
     }
@@ -327,22 +341,25 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
       return;
     }
 
-    // 每次登录都弹出协议确认；是否落库由 tncService.confirmLoginConsent 判断
-    void refresh();
-    setAgreementModalOpen(true);
-  };
-
-  const handleConsentAgree = async () => {
-    const ok = await confirmConsent();
-    if (!ok) {
-      Alert.alert('提示', '协议同意提交失败，请稍后重试');
+    if (!agreed) {
+      setConsentPendingAction('login');
       return;
     }
 
-    setAgreementModalOpen(false);
+    void performLogin();
+  };
+
+  /** 弹窗内点同意：回填登录页勾选态，并继续执行触发弹窗的那个动作 */
+  const handleConsentAgree = () => {
+    const pendingAction = consentPendingAction;
+    setConsentPendingAction(null);
     setAgreed(true);
     InteractionManager.runAfterInteractions(() => {
-      void performLogin();
+      if (pendingAction === 'login') {
+        void performLogin();
+        return;
+      }
+      void sendVerificationCode();
     });
   };
 
@@ -362,72 +379,82 @@ export const LoginPage = ({ navigation }: LoginPageProps) => {
   return (
     <LoginShell>
       <View style={styles.flex}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        <ScrollView
+          ref={scrollRef}
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           style={styles.flex}
+          contentContainerStyle={[
+            styles.main,
+            keyboardHeight > 0
+              ? {
+                  paddingTop: 24,
+                  paddingBottom: keyboardHeight + 24,
+                }
+              : null,
+          ]}
         >
-          <View style={styles.main}>
-            <LoginHeroSection />
+          <LoginHeroSection />
 
-            <View>
-              <LoginOtpFormSection
-                loginMode={loginMode}
-                onLoginModeChange={handleLoginModeChange}
-                account={account}
-                accountError={accountError}
-                verificationCode={verificationCode}
-                codeError={codeError}
-                canLogin={canLogin}
-                canGetCode={canGetCode}
-                countdown={countdown}
-                isPhoneMode={isPhoneMode}
-                isSigningIn={busy}
-                onAccountChange={handleAccountChange}
-                onAccountBlur={handleAccountBlur}
-                onVerificationCodeChange={handleVerificationCodeChange}
-                onVerificationCodeBlur={handleVerificationCodeBlur}
-                onGetCode={() => {
-                  void handleGetCode();
-                }}
-                onLogin={handleLogin}
-                country={phoneCountry}
-                onCountryChange={setPhoneCountry}
-              />
-            </View>
-          </View>
-        </KeyboardAvoidingView>
+          <LoginOtpFormSection
+            loginMode={loginMode}
+            onLoginModeChange={handleLoginModeChange}
+            account={account}
+            accountError={accountError}
+            verificationCode={verificationCode}
+            codeError={codeError}
+            canLogin={canLogin}
+            canGetCode={canGetCode}
+            countdown={countdown}
+            isPhoneMode={isPhoneMode}
+            isSigningIn={busy}
+            onAccountChange={handleAccountChange}
+            onAccountBlur={handleAccountBlur}
+            onVerificationCodeChange={handleVerificationCodeChange}
+            onVerificationCodeBlur={handleVerificationCodeBlur}
+            onGetCode={handleGetCode}
+            onLogin={handleLogin}
+            country={phoneCountry}
+            onCountryChange={setPhoneCountry}
+          />
+        </ScrollView>
 
-        <LoginAgreementSection
-          agreed={agreed}
-          onChange={setAgreed}
-          onPressPrivacyPolicy={openPrivacyPolicy}
-          onPressUserServiceAgreement={openUserServiceAgreement}
-          style={styles.agreementSection}
-        />
+        {keyboardHeight <= 0 ? (
+          <LoginAgreementSection
+            agreed={agreed}
+            onChange={setAgreed}
+            onPressPrivacyPolicy={openPrivacyPolicy}
+            onPressUserServiceAgreement={openUserServiceAgreement}
+            style={styles.agreementSection}
+          />
+        ) : null}
       </View>
 
       <TncConsentModal
-        open={agreementModalOpen}
-        isSubmitting={isPersistingConsent || isSigningIn}
+        open={consentPendingAction != null}
+        isSubmitting={isSigningIn}
         onPressPrivacyPolicy={openPrivacyPolicy}
         onPressUserServiceAgreement={openUserServiceAgreement}
-        onAgree={() => {
-          void handleConsentAgree();
-        }}
+        onAgree={handleConsentAgree}
         onDisagree={() => {
-          setAgreementModalOpen(false);
+          setConsentPendingAction(null);
         }}
       />
 
-      <AppModal
+      <Modal
         closeOnBackdropPress={false}
         content={sessionExpiredMessage ?? DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE}
-        okText="我知道了"
+        okText="重新登录"
         onClose={handleSessionExpiredModalClose}
         onOk={handleSessionExpiredModalClose}
-        title="登录提示"
+        title="登录已过期"
         visible={sessionExpiredModalVisible && Boolean(sessionExpiredMessage)}
+        cardStyle={styles.expiredCard}
+        contentStyle={styles.expiredContent}
+        okStyle={styles.expiredOk}
+        okTextStyle={styles.expiredOkText}
+        titleStyle={styles.expiredTitle}
       />
     </LoginShell>
   );
@@ -441,7 +468,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   main: {
-    flex: 1,
+    flexGrow: 1,
     paddingBottom: 96,
     paddingHorizontal: 20,
     paddingTop: CARD_TOP_OFFSET - HERO_BLOCK_HEIGHT,
@@ -452,5 +479,36 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+  },
+  expiredCard: {
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
+  },
+  expiredTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#021626',
+    textAlign: 'center',
+  },
+  expiredContent: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#021626',
+    textAlign: 'left',
+    paddingHorizontal: 20,
+  },
+  expiredOk: {
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#1967D2',
+    borderWidth: 0,
+  },
+  expiredOkText: {
+    color: designTokens.colors.gray[0],
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

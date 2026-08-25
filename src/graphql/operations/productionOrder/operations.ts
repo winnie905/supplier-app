@@ -1,14 +1,43 @@
 import { gql } from '@apollo/client';
 
+import {
+  BOX_SPECIFICATION_WITH_BRAND_FIELDS,
+  CROP_PROCESS_WITH_MAINTAINER_FIELDS,
+  USER_SUMMARY_FIELDS,
+} from '@/graphql/operations/shared/workshopOrderFields';
+
 /**
- * 供应商生产单 GraphQL 操作（对齐 REST：
- * /api/production_orders/supplier/statistic|search|{code}|confirm_arrive_material|exception_record
- * 后续由 BFF 接驳；字段名以 camelCase 暴露给客户端。）
+ * 供应商生产单 GraphQL 操作，字段与 apex-bff schema 一一对应。
+ * 别名保持 App 内部命名（productionOrderSupplierXxx），改后端字段名时只需改本文件。
  */
 
+/** ErpCropOrderPreviewDto（挂在生产单详情上；无 productionOrder） */
+const CROP_ORDER_PREVIEW_FIELDS = `
+  id
+  status
+  cropOrderType
+  createdAt
+  updatedAt
+  cropOrderStorage {
+    cropTotal
+    cropProcesses {
+      ${CROP_PROCESS_WITH_MAINTAINER_FIELDS}
+      boxSpecification {
+        ${BOX_SPECIFICATION_WITH_BRAND_FIELDS}
+      }
+    }
+  }
+  user {
+    ${USER_SUMMARY_FIELDS}
+  }
+  lastUpdater {
+    ${USER_SUMMARY_FIELDS}
+  }
+`;
+
 export const PRODUCTION_ORDER_SUPPLIER_STATISTIC = gql`
-  query ProductionOrderSupplierStatistic($input: ProductionOrderSupplierStatisticInput!) {
-    productionOrderSupplierStatistic(input: $input) {
+  query ProductionOrderSupplierStatistic($input: ErpProductionOrderSupplierSearchInput!) {
+    productionOrderSupplierStatistic: getSupplierProductionOrderStatistic(input: $input) {
       pendingCount
       inProgressCount
       finishedCount
@@ -22,8 +51,16 @@ export const PRODUCTION_ORDER_SUPPLIER_STATISTIC = gql`
 `;
 
 export const PRODUCTION_ORDER_SUPPLIER_SEARCH = gql`
-  query ProductionOrderSupplierSearch($input: ProductionOrderSupplierSearchInput!) {
-    productionOrderSupplierSearch(input: $input) {
+  query ProductionOrderSupplierSearch(
+    $input: ErpProductionOrderSupplierSearchInput!
+    $page: Float
+    $size: Float
+  ) {
+    productionOrderSupplierSearch: supplierProductionOrderSearch(
+      input: $input
+      page: $page
+      size: $size
+    ) {
       total
       size
       pages
@@ -32,14 +69,15 @@ export const PRODUCTION_ORDER_SUPPLIER_SEARCH = gql`
         saleOrderCode
         productionOrderCode
         code
+        productCode
         type
         productionOrderType
         customerCode
         customerPO
-        productCode
-        category
-        designImageUrls
-        requiredProductionDate
+        productionType
+        quantity
+        productionOrderStatus
+        factoryPlanedProductionDate
         brand {
           id
           name
@@ -57,30 +95,35 @@ export const PRODUCTION_ORDER_SUPPLIER_SEARCH = gql`
           firstName
           lastName
         }
-        productionType
-        quantity
-        productionOrderStatus
-        factoryPlanedProductionDate
         productionOrders {
-          id
           productionOrderCode
           code
           type
           color
           status
           factoryPlanedProductionDate
-          quantity
+        }
+        templateDesign {
+          category
+          customerCode
         }
       }
-      statistic {
-        pendingCount
-        inProgressCount
-        finishedCount
-        pendingQuantity
-        inProgressQuantity
-        finishedQuantity
-        overTimeCount
-        overTimeQuantity
+    }
+  }
+`;
+
+/** 列表缩略图：搜索预览无 template，按色补拉正面图 */
+export const PRODUCTION_ORDER_FRONT_IMAGES = gql`
+  query ProductionOrderFrontImages($productionOrderCode: String!, $color: String!) {
+    productionOrderSupplierDetail: getProductionOrder(
+      productionOrderCode: $productionOrderCode
+      color: $color
+    ) {
+      template {
+        frontImages {
+          url
+          description
+        }
       }
     }
   }
@@ -88,9 +131,12 @@ export const PRODUCTION_ORDER_SUPPLIER_SEARCH = gql`
 
 export const PRODUCTION_ORDER_SUPPLIER_DETAIL = gql`
   query ProductionOrderSupplierDetail($productionOrderCode: String!, $color: String!) {
-    productionOrderSupplierDetail(productionOrderCode: $productionOrderCode, color: $color) {
-      productionOrderCode
+    productionOrderSupplierDetail: getProductionOrder(
+      productionOrderCode: $productionOrderCode
+      color: $color
+    ) {
       id
+      productionOrderCode
       code
       type
       color
@@ -102,7 +148,6 @@ export const PRODUCTION_ORDER_SUPPLIER_DETAIL = gql`
       productionType
       comment
       factoryPlanedProductionDate
-      factoryReceiveMaterialStatus
       orderType
       createdAt
       updatedAt
@@ -129,6 +174,7 @@ export const PRODUCTION_ORDER_SUPPLIER_DETAIL = gql`
         type
         quantity
         requiredProductionDate
+        packageAttachment
         sizeRange {
           name
           quantity
@@ -161,6 +207,17 @@ export const PRODUCTION_ORDER_SUPPLIER_DETAIL = gql`
         brand {
           id
           name
+          customerId
+        }
+      }
+      template {
+        frontImages {
+          url
+          description
+        }
+        backImages {
+          url
+          description
         }
       }
       bomItems {
@@ -207,6 +264,7 @@ export const PRODUCTION_ORDER_SUPPLIER_DETAIL = gql`
         id
         productionId
         module
+        moduleExtend
         type
         reportedAt
         reportContent
@@ -226,42 +284,46 @@ export const PRODUCTION_ORDER_SUPPLIER_DETAIL = gql`
           lastName
         }
       }
+      cropOrder {
+        ${CROP_ORDER_PREVIEW_FIELDS}
+      }
+      sewingOrder {
+        ${CROP_ORDER_PREVIEW_FIELDS}
+      }
+      tailOrder {
+        ${CROP_ORDER_PREVIEW_FIELDS}
+      }
     }
   }
 `;
 
+/** 返回 Boolean，调用方需自行重新拉取详情 */
 export const CONFIRM_ARRIVE_MATERIAL = gql`
-  mutation ConfirmArriveMaterial($productionId: Int!, $input: ConfirmArriveMaterialInput!) {
-    confirmArriveMaterial(productionId: $productionId, input: $input) {
-      productionOrderCode
-      id
-      color
-      factoryReceiveMaterialStatus
-      bomItems {
-        id
-        receiveMaterialStatus
-      }
-      materialPackages {
-        id
-        receiveMaterialStatus
-      }
-      packMaterials {
-        id
-        receiveMaterialStatus
-      }
-    }
+  mutation ConfirmArriveMaterial(
+    $productionId: Float!
+    $input: ErpProductionConfirmMaterialRequestInput!
+  ) {
+    confirmArriveMaterial: productionOrderConfirmArriveMaterial(
+      productionId: $productionId
+      input: $input
+    )
   }
 `;
 
 export const CREATE_PRODUCTION_ORDER_EXCEPTION_RECORD = gql`
-  mutation CreateProductionOrderExceptionRecord($input: CreateExceptionRecordInput!) {
+  mutation CreateProductionOrderExceptionRecord(
+    $input: ErpProductionExceptionRecordCreateRequestInput!
+  ) {
     createProductionOrderExceptionRecord(input: $input) {
       id
       productionId
       module
+      moduleExtend
       type
       reportedAt
       reportContent
+      repliedAt
+      replyContent
       isReplied
       reporter {
         id

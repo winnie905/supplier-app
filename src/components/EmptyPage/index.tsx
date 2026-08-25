@@ -1,4 +1,4 @@
-import { Image } from 'design-system-native';
+import { designTokens, Image } from 'design-system-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { emptyPageImage } from '@/components/images';
@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
   description: {
     textAlign: 'center',
     fontSize: 14,
-    color: '#525866',
+    color: designTokens.colors.gray[500],
     lineHeight: 22,
     fontWeight: '600',
   },

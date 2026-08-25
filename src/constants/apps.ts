@@ -1,5 +1,3 @@
-export const APPS_COMPANY_NAME = '英耐特-淑女郎(成衣)';
-
 export type AppsEntryKey = 'order_search' | 'placeholder_1' | 'placeholder_2' | 'placeholder_3';
 
 export interface AppsEntry {

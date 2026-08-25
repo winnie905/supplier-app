@@ -141,11 +141,18 @@ export interface CropOrder {
   updatedAt?: string;
 }
 
+export interface ProductImage {
+  url: string;
+  description?: string;
+}
+
 export interface Template {
   id?: number | string;
   code?: string;
   createdAt?: string;
   updatedAt?: string;
+  frontImages?: ProductImage[];
+  backImages?: ProductImage[];
 }
 
 export interface QuoteMaterial {
@@ -273,12 +280,3 @@ export interface ProductionOrderVO {
   productionProcesses: QuoteProcess[];
   secondaryProcesses: SecondaryProcessInfo[];
 }
-
-export const ProductionStatusTitle: Record<ProductionStatus, string> = {
-  [ProductionStatus.Ordered]: '待下单',
-  [ProductionStatus.Pending]: '已下单',
-  [ProductionStatus.InProgress]: '生产中',
-  [ProductionStatus.PartialComplete]: '部分生产完成',
-  [ProductionStatus.Finished]: '已完成',
-  [ProductionStatus.QuotationCompare]: '询价中',
-};

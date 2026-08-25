@@ -198,6 +198,11 @@ export function setSessionCache(session: StoredSession): void {
   sessionCache = session;
 }
 
+/** 同步读取内存 session，供 GraphQL errorLink 判断请求是否已过期。 */
+export function peekSessionCache(): StoredSession | null | undefined {
+  return sessionCache;
+}
+
 /**
  * 更新内存 + AsyncStorage（主链路，毫秒级）。
  * iOS 额外延迟同步 Keychain。
@@ -206,11 +211,18 @@ export function persistSession(
   session: StoredSession,
   options?: { keychainImmediate?: boolean },
 ): void {
+  const generation = saveGeneration;
   sessionCache = session;
 
-  void writeAsyncStorageSession(session).catch((error) => {
-    console.error('persistSession asyncStorage error:', error);
-  });
+  void writeAsyncStorageSession(session)
+    .then(() => {
+      if (generation !== saveGeneration) {
+        return removeAsyncStorageSession();
+      }
+    })
+    .catch((error) => {
+      console.error('persistSession asyncStorage error:', error);
+    });
 
   scheduleKeychainPersist(session, options?.keychainImmediate ?? false);
 }

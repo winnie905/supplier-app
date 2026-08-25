@@ -46,7 +46,7 @@ export const ServiceAgreement = ({ version, effectiveDate }: ServiceAgreementPro
       } as TextStyle,
       strong: {
         color: colors.text,
-        fontWeight: '700',
+        fontWeight: '800',
       } as TextStyle,
       metaLabel: {
         color: META_TEXT_COLOR,

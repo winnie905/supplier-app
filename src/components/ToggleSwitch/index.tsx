@@ -1,3 +1,4 @@
+import { designTokens } from 'design-system-native';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
@@ -14,9 +15,9 @@ const THUMB_SIZE = TRACK_HEIGHT - TRACK_PADDING * 2;
 const THUMB_TRAVEL = TRACK_WIDTH - THUMB_SIZE - TRACK_PADDING * 2;
 const ANIM_DURATION_MS = 200;
 
-const ON_COLOR = '#105FC8';
-const OFF_COLOR = '#DADEE5';
-const THUMB_COLOR = '#FFFFFF';
+const ON_COLOR = designTokens.colors.brand[500];
+const OFF_COLOR = designTokens.colors.gray[200];
+const THUMB_COLOR = designTokens.colors.gray[0];
 
 interface ToggleSwitchProps {
   value: boolean;

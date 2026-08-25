@@ -1,3 +1,4 @@
+import { designTokens } from 'design-system-native';
 import { type ReactNode, useState } from 'react';
 import { Image, type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -97,8 +98,8 @@ const SectionCardChrome = ({
           </LinearGradient>
         ) : (
           <LinearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#FFFFFF" stopOpacity="1" />
-            <Stop offset="0.99" stopColor="#FFFFFF" stopOpacity="0" />
+            <Stop offset="0" stopColor={designTokens.colors.gray[0]} stopOpacity="1" />
+            <Stop offset="0.99" stopColor={designTokens.colors.gray[0]} stopOpacity="0" />
           </LinearGradient>
         )}
       </Defs>
@@ -174,6 +175,7 @@ interface MaterialCategorySectionProps {
   groups: [string, MaterialItem[]][];
   sectionChecked: boolean;
   selectedIds: string[];
+  exceptionLabelByItemId?: Record<string, string>;
   onToggleSection: () => void;
   onToggleItem: (id: string) => void;
   onLayout: (event: LayoutChangeEvent) => void;
@@ -185,6 +187,7 @@ export const MaterialCategorySection = ({
   groups,
   sectionChecked,
   selectedIds,
+  exceptionLabelByItemId,
   onToggleSection,
   onToggleItem,
   onLayout,
@@ -204,6 +207,9 @@ export const MaterialCategorySection = ({
               key={item.id}
               item={item}
               checked={selectedIds.includes(item.id)}
+              {...(exceptionLabelByItemId?.[item.id]
+                ? { exceptionLabel: exceptionLabelByItemId[item.id] }
+                : null)}
               onToggle={() => onToggleItem(item.id)}
             />
           ))}
@@ -258,6 +264,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
     flexDirection: 'column',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
   },
 });

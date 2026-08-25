@@ -1,23 +1,28 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { designTokens } from 'design-system-native';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, type ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ApplicationIcon from '@/assets/icons/tab/application.svg';
-import ApplicationActiveIcon from '@/assets/icons/tab/application_active.svg';
 import ManagementIcon from '@/assets/icons/tab/management.svg';
-import ManagementActiveIcon from '@/assets/icons/tab/management_active.svg';
 import MeIcon from '@/assets/icons/tab/me.svg';
-import MeActiveIcon from '@/assets/icons/tab/me_active.svg';
 import MessageIcon from '@/assets/icons/tab/message.svg';
-import MessageActiveIcon from '@/assets/icons/tab/message_active.svg';
 import ReportIcon from '@/assets/icons/tab/report.svg';
-import ReportActiveIcon from '@/assets/icons/tab/report_active.svg';
+import {
+  tabApplicationActiveImage,
+  tabManagementActiveImage,
+  tabMeActiveImage,
+  tabMessageActiveImage,
+  tabReportActiveImage,
+} from '@/components/images';
 import { ROUTES } from '@/constants/routes';
 
-const CONTAINER_HEIGHT = 56;
+const SLIDER_VERTICAL_MARGIN = 4;
+const SLIDER_HEIGHT = 48;
+const CONTAINER_HEIGHT = SLIDER_HEIGHT + SLIDER_VERTICAL_MARGIN * 2;
 const CONTAINER_RADIUS = 97;
 const CONTAINER_BORDER_WIDTH = 1;
 const SLIDER_RADIUS = 58;
@@ -25,11 +30,12 @@ const CONTAINER_PADDING = 4;
 const HORIZONTAL_MARGIN = 16;
 const MIN_BOTTOM_MARGIN = 16;
 const SLIDE_DURATION_MS = 260;
+const TAB_ICON_SIZE = 24;
 
 const CONTAINER_COLOR = '#F3F8FC';
-const CONTAINER_BORDER_COLOR = '#FFFFFF';
+const CONTAINER_BORDER_COLOR = designTokens.colors.gray[0];
 const SLIDER_COLOR = '#DFE8F4';
-const ACTIVE_TEXT_COLOR = '#105FC8';
+const ACTIVE_TEXT_COLOR = designTokens.colors.brand[500];
 const INACTIVE_TEXT_COLOR = '#6C829E';
 
 type TabIcon = React.ComponentType<{ width?: number; height?: number }>;
@@ -37,7 +43,7 @@ type TabIcon = React.ComponentType<{ width?: number; height?: number }>;
 interface TabMeta {
   label: string;
   Icon: TabIcon;
-  ActiveIcon: TabIcon;
+  activeIcon: ImageSourcePropType;
   home: string;
 }
 
@@ -45,31 +51,31 @@ const TAB_META: Record<string, TabMeta> = {
   [ROUTES.TABS.APPS_TAB]: {
     label: '应用',
     Icon: ApplicationIcon,
-    ActiveIcon: ApplicationActiveIcon,
+    activeIcon: tabApplicationActiveImage,
     home: ROUTES.APPS.APPS_HOME,
   },
   [ROUTES.TABS.REPORTS_TAB]: {
     label: '报表',
     Icon: ReportIcon,
-    ActiveIcon: ReportActiveIcon,
+    activeIcon: tabReportActiveImage,
     home: ROUTES.REPORTS.REPORTS_HOME,
   },
   [ROUTES.TABS.LOGISTICS_TAB]: {
     label: '收发',
     Icon: ManagementIcon,
-    ActiveIcon: ManagementActiveIcon,
+    activeIcon: tabManagementActiveImage,
     home: ROUTES.LOGISTICS.LOGISTICS_HOME,
   },
   [ROUTES.TABS.MESSAGES_TAB]: {
     label: '消息',
     Icon: MessageIcon,
-    ActiveIcon: MessageActiveIcon,
+    activeIcon: tabMessageActiveImage,
     home: ROUTES.MESSAGES.MESSAGES_HOME,
   },
   [ROUTES.TABS.ME_TAB]: {
     label: '我的',
     Icon: MeIcon,
-    ActiveIcon: MeActiveIcon,
+    activeIcon: tabMeActiveImage,
     home: ROUTES.ME.ME_HOME,
   },
 };
@@ -161,7 +167,7 @@ export const AppTabBar = ({ state, navigation, descriptors }: BottomTabBarProps)
           }
 
           const isFocused = state.index === index;
-          const IconComponent = isFocused ? meta.ActiveIcon : meta.Icon;
+          const IconComponent = meta.Icon;
 
           const handlePress = () => {
             const event = navigation.emit({
@@ -189,7 +195,11 @@ export const AppTabBar = ({ state, navigation, descriptors }: BottomTabBarProps)
               onLongPress={handleLongPress}
               style={styles.item}
             >
-              <IconComponent width={24} height={24} />
+              {isFocused ? (
+                <Image source={meta.activeIcon} style={styles.activeIcon} resizeMode="contain" />
+              ) : (
+                <IconComponent width={TAB_ICON_SIZE} height={TAB_ICON_SIZE} />
+              )}
               <Text
                 style={[
                   styles.label,
@@ -223,13 +233,12 @@ const styles = StyleSheet.create({
     borderWidth: CONTAINER_BORDER_WIDTH,
     borderColor: CONTAINER_BORDER_COLOR,
     backgroundColor: CONTAINER_COLOR,
-    padding: CONTAINER_PADDING,
+    paddingHorizontal: CONTAINER_PADDING,
   },
   slider: {
     position: 'absolute',
     left: CONTAINER_PADDING,
-    top: CONTAINER_PADDING,
-    bottom: CONTAINER_PADDING,
+    height: SLIDER_HEIGHT,
     borderRadius: SLIDER_RADIUS,
     backgroundColor: SLIDER_COLOR,
   },
@@ -239,6 +248,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+  },
+  activeIcon: {
+    width: TAB_ICON_SIZE,
+    height: TAB_ICON_SIZE,
   },
   label: {
     fontSize: 11,

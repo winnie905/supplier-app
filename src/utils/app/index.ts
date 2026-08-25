@@ -2,7 +2,6 @@
 export {
   buildFileUrl,
   buildUserAgent,
-  getBleedCompensatedTopPadding,
   getRuntimeConfigStorage,
   getSafeAreaTopInset,
   logger,

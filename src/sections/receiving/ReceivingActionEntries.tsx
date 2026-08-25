@@ -1,7 +1,8 @@
-import { Image, Pressable, Text } from 'design-system-native';
+import { designTokens, Image, Pressable, Text } from 'design-system-native';
 import type { ImageSourcePropType } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
+import CaretRightIcon from '@/assets/icons/caretRight.svg';
 import WarningTriangleIcon from '@/assets/icons/warningTriangle.svg';
 import {
   cuttingRecords,
@@ -44,9 +45,8 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
         meta.statusTag = { label: '全部到料', tone: 'blue' };
       } else if (status.material === 'partial' || status.material === 'exception') {
         meta.statusTag = { label: '部分到料', tone: 'blue' };
-      } else if (status.material === 'pending') {
-        meta.statusTag = { label: '待确认', tone: 'gray' };
       }
+      // pending（未开始）不展示「待确认」
       if (status.material === 'exception') {
         meta.hasException = true;
       }
@@ -55,7 +55,7 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
     case 'cutting': {
       const meta: EntryMeta = {};
       if (status.cutting.cutTotal > 0) {
-        meta.subtitle = `已裁: ${status.cutting.cutTotal}`;
+        meta.subtitle = `已裁：${status.cutting.cutTotal}`;
       }
       if (status.cutting.hasException) {
         meta.hasException = true;
@@ -65,7 +65,7 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
     case 'sewing': {
       if (status.sewing.upTotal > 0 || status.sewing.downTotal > 0) {
         return {
-          subtitle: `上车位: ${status.sewing.upTotal} | 下车位: ${status.sewing.downTotal}`,
+          subtitle: `上车位：${status.sewing.upTotal} | 下车位：${status.sewing.downTotal}`,
         };
       }
       return {};
@@ -73,7 +73,7 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
     case 'packing': {
       if (status.packing.boxCount > 0 || status.packing.pieceCount > 0) {
         return {
-          subtitle: `总箱数: ${status.packing.boxCount} | 装箱总件数: ${status.packing.pieceCount}`,
+          subtitle: `总箱数：${status.packing.boxCount} | 装箱总件数：${status.packing.pieceCount}`,
         };
       }
       return {};
@@ -83,10 +83,45 @@ const getEntryMeta = (key: ActionEntryKey, summary: ProductionColorSummary): Ent
   }
 };
 
+/** 已回填生产单、但该入口尚无实质处理数据时，右侧展示「去完成」 */
+const shouldShowGoComplete = (meta: EntryMeta | null, isCompleted: boolean) => {
+  if (!meta || isCompleted) return false;
+  if (meta.hasException || meta.rightBadge || meta.subtitle) return false;
+  // 全部/部分到料等状态标签视为已有处理进度
+  if (meta.statusTag) return false;
+  return true;
+};
+
+/** 设计稿：数量文案用中等灰，竖线分隔符更浅 */
+const EntrySubtitle = ({ text }: { text: string }) => {
+  const parts = text.split(' | ');
+  if (parts.length === 1) {
+    return <Text style={styles.subtitle}>{text}</Text>;
+  }
+  return (
+    <Text style={styles.subtitle}>
+      {parts.map((part, index) => (
+        <Text key={`${part}-${index}`}>
+          {index > 0 ? <Text style={styles.subtitleDivider}>{' | '}</Text> : null}
+          {part}
+        </Text>
+      ))}
+    </Text>
+  );
+};
+
 const ExceptionPill = () => (
   <View style={styles.exceptionPill}>
-    <WarningTriangleIcon color="#FFFFFF" height={14} width={14} />
+    <WarningTriangleIcon color={designTokens.colors.gray[0]} height={14} width={14} />
     <Text style={styles.exceptionPillText}>有异常</Text>
+  </View>
+);
+
+/** 仅作视觉提示，点击由整卡 Pressable 承接 */
+const GoCompletePill = () => (
+  <View pointerEvents="none" style={styles.goCompletePill}>
+    <Text style={styles.goCompleteText}>去完成</Text>
+    <CaretRightIcon color="#061B37" height={12} width={12} />
   </View>
 );
 
@@ -107,6 +142,7 @@ export const ReceivingActionEntries = ({
     {ACTION_ENTRIES.map((entry) => {
       const meta = summary ? getEntryMeta(entry.key, summary) : null;
       const isCompleted = summary?.status === 'completed';
+      const showGoComplete = Boolean(summary) && shouldShowGoComplete(meta, Boolean(isCompleted));
 
       return (
         <Pressable
@@ -124,7 +160,10 @@ export const ReceivingActionEntries = ({
           style={[styles.item, disabled && styles.itemDisabled]}
         >
           <View style={styles.left}>
-            <Image source={ENTRY_ICONS[entry.key]} style={styles.icon} />
+            <Image
+              source={ENTRY_ICONS[entry.key]}
+              style={[styles.icon, disabled && styles.iconDisabled]}
+            />
             <View style={styles.textCol}>
               <Text style={[styles.title, disabled && styles.itemDisabledTitle]}>
                 {entry.title}
@@ -136,7 +175,7 @@ export const ReceivingActionEntries = ({
                   tone={meta.statusTag.tone}
                 />
               ) : null}
-              {meta?.subtitle ? <Text style={styles.subtitle}>{meta.subtitle}</Text> : null}
+              {meta?.subtitle ? <EntrySubtitle text={meta.subtitle} /> : null}
             </View>
           </View>
           <View style={styles.right}>
@@ -144,6 +183,7 @@ export const ReceivingActionEntries = ({
             {meta?.rightBadge ? (
               <ReceivingStatusBadge label={meta.rightBadge.label} tone={meta.rightBadge.tone} />
             ) : null}
+            {showGoComplete ? <GoCompletePill /> : null}
           </View>
         </Pressable>
       );
@@ -160,7 +200,7 @@ const styles = StyleSheet.create({
   item: {
     minHeight: 80,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     paddingHorizontal: 13,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -187,6 +227,9 @@ const styles = StyleSheet.create({
     height: 54,
     width: 54,
   },
+  iconDisabled: {
+    opacity: 0.5,
+  },
   title: {
     fontSize: 18,
     fontWeight: '600',
@@ -196,6 +239,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: '#6B7A90',
+  },
+  subtitleDivider: {
+    color: '#C5CDD8',
   },
   right: {
     flexDirection: 'row',
@@ -217,6 +263,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
+  },
+  goCompletePill: {
+    width: 86,
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 53,
+    borderWidth: 1,
+    borderColor: '#C8DFFF',
+    backgroundColor: '#F3F9FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goCompleteText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: '#061B37',
   },
 });

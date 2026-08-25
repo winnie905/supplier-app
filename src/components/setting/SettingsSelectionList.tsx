@@ -1,4 +1,4 @@
-import { Text } from 'design-system-native';
+import { designTokens, Text } from 'design-system-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import CheckIcon from '@/assets/icons/check.svg';
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   card: {
     overflow: 'hidden',
     borderRadius: CARD_RADIUS,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
   },
   optionPressable: {
     height: SETTINGS_LIST_ITEM_HEIGHT,

@@ -8,6 +8,7 @@ import DeviceInfo from 'react-native-device-info';
 
 import { env } from '@/config/env';
 import { COMPRESS_DIRECTORY_NAME, ORIGINAL_MAP_CATALOG_NAME } from '@/constants/app';
+import { useRuntimeConfigStore } from '@/store/runtimeConfigStore';
 
 const shouldLog = env.APP_ENV === 'dev';
 
@@ -29,9 +30,6 @@ export const getSafeAreaTopInset = (insetsTop: number): number => {
 
   return insetsTop;
 };
-
-export const getBleedCompensatedTopPadding = (insetsTop: number, contentSpacing = 0): number =>
-  getSafeAreaTopInset(insetsTop) * 2 + contentSpacing;
 
 interface BuildUserAgentOptions {
   appName?: string;
@@ -129,6 +127,13 @@ const trimStartSlash = (value: string): string => value.replace(/^\/+/, '');
 
 const DEFAULT_FILE_PREFIX = 'https://apex-erp.s3.cn-northwest-1.amazonaws.com.cn';
 
+/**
+ * 拼接资源访问 URL（与 apex-app 对齐）。
+ * - 空路径 → ''
+ * - 已是 http(s) → 原样返回
+ * - 相对路径 → filePrefix + path
+ * - original: true → 将压缩目录 `user-assets` 替换为原图目录 `original-assets`
+ */
 export const buildFileUrl = (
   serverPath?: string | null,
   options?: { original?: boolean },
@@ -149,7 +154,7 @@ export const buildFileUrl = (
     return path;
   }
 
-  const filePrefix = DEFAULT_FILE_PREFIX;
+  const filePrefix = useRuntimeConfigStore.getState().config?.filePrefix ?? DEFAULT_FILE_PREFIX;
 
   if (original) {
     path = path.replace(COMPRESS_DIRECTORY_NAME, ORIGINAL_MAP_CATALOG_NAME);

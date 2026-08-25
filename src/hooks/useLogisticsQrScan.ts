@@ -1,6 +1,4 @@
-import { useCallback, useMemo } from 'react';
-
-import { useToast } from '@/components/toast/Toast';
+import { useMemo } from 'react';
 
 export const useLogisticsQrScanTexts = () =>
   useMemo(
@@ -17,22 +15,3 @@ export const useLogisticsQrScanTexts = () =>
     }),
     [],
   );
-
-export const useLogisticsQrScanHandlers = (onSuccess: (value: string) => void) => {
-  const { showToast } = useToast();
-
-  const handleScanSuccess = useCallback(
-    (value: string) => {
-      showToast(`扫码成功: ${value}`);
-      onSuccess(value);
-    },
-    [onSuccess, showToast],
-  );
-
-  return {
-    handleScanSuccess,
-    handleScanError: useCallback(() => {
-      showToast('识别失败');
-    }, [showToast]),
-  };
-};

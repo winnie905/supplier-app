@@ -1,3 +1,4 @@
+import { designTokens } from 'design-system-native';
 import type { ReactNode } from 'react';
 import { Animated, type GestureResponderHandlers, StyleSheet, View } from 'react-native';
 
@@ -21,6 +22,7 @@ export const ReceivingHomeSlidingPanel = ({
   children: ReactNode;
 }) => (
   <Animated.View
+    {...(panHandlers ?? {})}
     style={[
       styles.panel,
       {
@@ -30,7 +32,7 @@ export const ReceivingHomeSlidingPanel = ({
     ]}
   >
     <View style={[styles.panelInner, { paddingBottom: bottomReserve }]}>
-      <PanelHandle {...(panHandlers ? { panHandlers } : {})} />
+      <PanelHandle />
       {children}
     </View>
   </Animated.View>
@@ -46,7 +48,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: designTokens.colors.gray[0],
     overflow: 'hidden',
   },
   panelInner: {
@@ -54,7 +56,7 @@ const styles = StyleSheet.create({
   },
   panelHandleWrap: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 14,
   },
   panelHandle: {
     width: 75,

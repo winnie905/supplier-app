@@ -5,4 +5,5 @@ export const SESSION_CHECK_INTERVAL_MS = 60_000;
 export const SESSION_KICKED_OFFLINE_MESSAGE_MARKER = '其他设备登录';
 
 /** 被挤下线时登录页弹窗兜底文案。 */
-export const DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE = '您的账号已在其他设备登录，请重新登录';
+export const DEFAULT_SESSION_KICKED_OFFLINE_MESSAGE =
+  '当前账号已在另一台移动设备上登录，\n本机将被登出';

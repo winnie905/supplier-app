@@ -1,10 +1,9 @@
-import { Pressable, Text } from 'design-system-native';
+import { ClearableInput, designTokens, Pressable, Text } from 'design-system-native';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import CheckIcon from '@/assets/icons/check.svg';
-import { ClearableInput } from '@/components/ClearableInput';
 import { DrawerModal, type DrawerModalHeight } from '@/components/SelectionModal/DrawerModal';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
@@ -172,7 +171,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#EBEFF7',
+    borderBottomColor: designTokens.colors.gray[100],
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -185,7 +184,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   optionSelected: {
-    color: '#105FC8',
+    color: designTokens.colors.brand[500],
     fontWeight: '600',
   },
   empty: {

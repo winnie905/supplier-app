@@ -5,7 +5,7 @@
  * GET/POST/PUT /api/tail_order、POST /api/tail_order/statistic
  *
  * 嵌套实体仅保留 App 当前会用到的字段；swagger 中车缝/尾部与裁床单共用 cropOrderStorage 结构。
- * 尾部单 GET 额外回传 tailOrderStorage（装箱工序，结构同 cropOrderStorage）。
+ * 尾部单读取时额外回传 tailOrderStorage（装箱工序，结构同 cropOrderStorage）。
  */
 
 import type {
@@ -14,14 +14,37 @@ import type {
   SupplierApiUser,
 } from '@/types/supplierProductionOrder';
 
-/** 裁床/车缝/尾部单据状态（与后端枚举对齐，未知值按 string 透传） */
-export type WorkshopOrderStatus = 'Pending' | 'InProgress' | 'Finished' | (string & {});
+/** 裁床/车缝/尾部单据状态（对齐 ErpCropOrderStatus） */
+export type WorkshopOrderStatus =
+  | 'Pending'
+  | 'Finished'
+  | 'Cancelled'
+  | 'QuotationCompare'
+  | 'Revert'
+  | 'InProgress'
+  | (string & {});
 
-/** cropOrderType：裁床 CROP_ORDER；车缝/尾部 swagger 仍可能回传同枚举或 SEW_ORDER / TAIL_ORDER */
-export type CropOrderType = 'CROP_ORDER' | 'SEW_ORDER' | 'TAIL_ORDER' | (string & {});
+/** 对齐 ErpCropOrderCropOrderType；旧 REST 大写枚举仅兼容未改完的车缝/尾部 */
+export type CropOrderType =
+  | 'CropOrder'
+  | 'SewingOrder'
+  | 'TailOrder'
+  | 'CROP_ORDER'
+  | 'SEW_ORDER'
+  | 'TAIL_ORDER';
 
-/** 箱规类型（对齐 box_specification.type） */
-export type BoxSpecificationType = 'GENERAL' | 'BRAND' | (string & {});
+/** 对齐 ErpCropProcessType（裁床用 Machine） */
+export type CropProcessType =
+  | 'Machine'
+  | 'ManualOperation'
+  | 'UpSew'
+  | 'DownSew'
+  | 'BrandBox'
+  | 'CommonBox'
+  | (string & {});
+
+/** 箱规类型（对齐 ErpBoxSpecificationType） */
+export type BoxSpecificationType = 'Brand' | 'General';
 
 /** 工序上挂载的箱规摘要（装箱用） */
 export interface BoxSpecificationRef {
@@ -43,11 +66,12 @@ export interface CropProcessSizeRange {
 
 /** 单次裁床/车缝/尾部工序（对应 UI 一床次 / 一日记录 / 一箱） */
 export interface CropProcess {
-  id: string;
+  /** 后端生成；新建提交时不传 */
+  id?: string;
   /** ISO 时间，可作提交时间或床次/日期依据 */
   cropDate?: string;
-  /** 如 machine */
-  type?: string;
+  /** 对齐 ErpCropProcessType，如 Machine */
+  type?: CropProcessType;
   sizeRange?: CropProcessSizeRange[];
   totalQuantity?: number;
   maintainer?: SupplierApiUser;
@@ -75,16 +99,27 @@ export interface WorkshopProductionOrderRef {
   purchaseCode?: string;
   status?: string;
   saleOrderCode?: string;
+  /** create/update 入参必填，App 侧用空数组占位 */
+  bomItems?: unknown[];
+  productionProcesses?: unknown[];
+  secondaryProcesses?: unknown[];
+  productionType?: string;
   factoryPlanedProductionDate?: string;
   customerPurchaseOrder?: {
     saleOrderCode?: string;
     productCode?: string;
     customerPO?: string;
     color?: string;
+    code?: string;
+    type?: string;
+    purchaseCode?: string;
     quantity?: number;
     sizeRange?: SupplierApiSizeRange[];
     requiredProductionDate?: string;
-    brand?: SupplierApiBrand;
+    brand?: SupplierApiBrand & {
+      invoiceRegistrationAddress?: string;
+      invoiceRegistrationNumber?: string;
+    };
   };
   templateDesign?: {
     code?: string;
@@ -99,7 +134,8 @@ export interface WorkshopProductionOrderRef {
  * GET/POST/PUT /api/sew_order（结构与裁床单相同）
  */
 export interface CropOrder {
-  id: number;
+  /** 后端生成；create 入参不传，update 必传真正的裁床单 id（非生产单 id） */
+  id?: number;
   status?: WorkshopOrderStatus;
   cropOrderStorage?: CropOrderStorage;
   lastUpdater?: SupplierApiUser;
@@ -114,8 +150,8 @@ export interface CropOrder {
 export type SewOrder = CropOrder;
 
 /**
- * 尾部单：在 CropOrder 基础上，GET 可额外带 tailOrderStorage（装箱记录）。
- * POST/PUT 入参 swagger 仍以 cropOrderStorage 为主；App 写入装箱数据优先用 tailOrderStorage。
+ * 尾部单：在 CropOrder 基础上，读取（getTailOrderById / 生产单详情）可额外带 tailOrderStorage。
+ * 写入入参没有该字段，装箱数据统一提交到 cropOrderStorage。
  */
 export interface TailOrder extends CropOrder {
   tailOrderStorage?: CropOrderStorage;

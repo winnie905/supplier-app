@@ -1,4 +1,11 @@
-import { Button, Pressable, Spinner, Text } from 'design-system-native';
+import {
+  Button,
+  designTokens,
+  Pressable,
+  SafeAreaHeader,
+  Spinner,
+  Text,
+} from 'design-system-native';
 import { memo } from 'react';
 import { Image, ScrollView, StyleSheet, Text as RNText, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,7 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WhiteBackIcon from '@/assets/icons/white_back.svg';
 import { QrCodeMarker } from '@/components/QrCodeMarker';
 import type { QrScanDetectedCode } from '@/components/qrScan/types';
-import { SafeAreaHeader } from '@/components/SafeAreaHeader';
 import type { AlbumPhase, QrCodeCandidate } from '@/types';
 import { STACK_HEADER_TOOLBAR_HEIGHT } from '@/utils/app';
 
@@ -187,7 +193,7 @@ const AlbumLoadingOverlay = memo(
     return (
       <View style={albumStyles.loading}>
         <Spinner size="large" />
-        <Text style={{ color: '#FFFFFF', marginTop: spacingMd }}>
+        <Text style={{ color: designTokens.colors.gray[0], marginTop: spacingMd }}>
           {phase === 'picking' ? openingText : analyzingText}
         </Text>
       </View>
@@ -251,11 +257,16 @@ const albumStyles = StyleSheet.create({
     right: 16,
     zIndex: 210,
   },
-  fallbackTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '600', marginBottom: 10 },
+  fallbackTitle: {
+    color: designTokens.colors.gray[0],
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
   fallbackList: { maxHeight: 200 },
   fallbackListContent: { gap: 8 },
   fallbackButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: designTokens.colors.gray[0],
     borderRadius: 8,
     justifyContent: 'center',
     minHeight: 44,

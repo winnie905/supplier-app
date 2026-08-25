@@ -1,4 +1,4 @@
-import { Pressable, Text } from 'design-system-native';
+import { designTokens, Pressable, Text } from 'design-system-native';
 import { type StyleProp, StyleSheet, TextInput, View, type ViewStyle } from 'react-native';
 
 import ScanIcon from '@/assets/icons/scan.svg';
@@ -8,6 +8,7 @@ export const SearchEntryBar = ({
   onScanPress,
   onSearchPress,
   onSearchPressIn,
+  onClear,
   value,
   showScan = true,
   style,
@@ -15,6 +16,8 @@ export const SearchEntryBar = ({
   onScanPress?: () => void;
   onSearchPress: () => void;
   onSearchPressIn?: (() => void) | undefined;
+  /** 传入后有内容时展示清除按钮 */
+  onClear?: () => void;
   value?: string;
   /** 收发首页默认 true；应用首页无扫码时传 false */
   showScan?: boolean;
@@ -55,6 +58,19 @@ export const SearchEntryBar = ({
         value={value ?? ''}
       />
     </Pressable>
+    {onClear && value ? (
+      <Pressable
+        accessibilityLabel="清除"
+        accessibilityRole="button"
+        hitSlop={8}
+        onPress={onClear}
+        style={styles.clearBtn}
+      >
+        <View style={styles.clearIcon}>
+          <Text style={styles.clearGlyph}>×</Text>
+        </View>
+      </Pressable>
+    ) : null}
     <Pressable
       accessibilityRole="button"
       onPress={onSearchPress}
@@ -105,17 +121,37 @@ const styles = StyleSheet.create({
     color: '#061B37',
     fontWeight: '500',
   },
+  clearBtn: {
+    paddingHorizontal: 6,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#C8D4E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearGlyph: {
+    fontSize: 14,
+    lineHeight: 16,
+    color: designTokens.colors.gray[0],
+    fontWeight: '700',
+  },
   searchBtn: {
     height: 30,
     paddingHorizontal: 8,
-    backgroundColor: '#105FC8',
+    backgroundColor: designTokens.colors.brand[500],
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
     margin: 5,
   },
   searchBtnText: {
-    color: '#FFFFFF',
+    color: designTokens.colors.gray[0],
     fontSize: 15,
     fontWeight: '600',
   },

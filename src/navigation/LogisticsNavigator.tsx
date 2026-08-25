@@ -1,4 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { designTokens } from 'design-system-native';
 import { useMemo } from 'react';
 
 import { ROUTES } from '@/constants/routes';
@@ -14,9 +15,6 @@ import { PackingRecordsPage } from '@/pages/receiving/PackingRecordsPage';
 import { ReceivingSearchPage } from '@/pages/receiving/ReceivingSearchPage';
 import { SewingRecordsPage } from '@/pages/receiving/SewingRecordsPage';
 import { withReceivingStackScreenLayout } from '@/sections/receiving/withReceivingStackScreenLayout';
-import { navPerfModuleLoad } from '@/utils/navPerf';
-
-navPerfModuleLoad('LogisticsNavigator');
 
 const Stack = createNativeStackNavigator<LogisticsStackParamList>();
 
@@ -27,12 +25,16 @@ export const LogisticsNavigator = () => {
     () => ({
       LogisticsHome: withStackScreenLayout(LogisticsHomePage, { backgroundColor: 'transparent' }),
       QrScan: withStackScreenLayout(QrScanScreenPage, { backgroundColor: '#000000' }),
-      ReceivingSearch: withStackScreenLayout(ReceivingSearchPage, { backgroundColor: '#FFFFFF' }),
-      MaterialConfirmation: withReceivingStackScreenLayout(MaterialConfirmationPage),
+      ReceivingSearch: withStackScreenLayout(ReceivingSearchPage, {
+        backgroundColor: designTokens.colors.gray[0],
+      }),
+      MaterialConfirmation: withReceivingStackScreenLayout(MaterialConfirmationPage, {
+        variant: 'secondary',
+      }),
       ExceptionReplyList: withReceivingStackScreenLayout(ExceptionReplyListPage),
-      CuttingRecords: withReceivingStackScreenLayout(CuttingRecordsPage),
-      SewingRecords: withReceivingStackScreenLayout(SewingRecordsPage),
-      PackingRecords: withReceivingStackScreenLayout(PackingRecordsPage),
+      CuttingRecords: withReceivingStackScreenLayout(CuttingRecordsPage, { variant: 'secondary' }),
+      SewingRecords: withReceivingStackScreenLayout(SewingRecordsPage, { variant: 'secondary' }),
+      PackingRecords: withReceivingStackScreenLayout(PackingRecordsPage, { variant: 'secondary' }),
     }),
     [],
   );
@@ -80,7 +82,7 @@ export const LogisticsNavigator = () => {
           headerShown: false,
           statusBarTranslucent: true,
           statusBarStyle: 'dark',
-          contentStyle: { backgroundColor: '#FFFFFF' },
+          contentStyle: { backgroundColor: designTokens.colors.gray[0] },
           animation: 'none',
         }}
       />
@@ -102,7 +104,7 @@ export const LogisticsNavigator = () => {
         options={{
           title: '异常回复',
           contentStyle: { backgroundColor: '#F5F5F5' },
-          headerStyle: { backgroundColor: '#FFFFFF' },
+          headerStyle: { backgroundColor: designTokens.colors.gray[0] },
         }}
       />
       <Stack.Screen

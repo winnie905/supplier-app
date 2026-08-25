@@ -1,23 +1,20 @@
 /**
- * 供应商生产单相关 HTTP/GraphQL 契约类型（对齐 BFF 接驳前的 REST 文档）。
- * 嵌套实体仅保留 App 当前及近期会用到的字段，避免整份 swagger 灌入。
+ * 供应商生产单 GraphQL 契约类型，对齐 apex-bff schema。
+ * 嵌套实体仅保留 App 当前及近期会用到的字段，避免整份 schema 灌入。
  */
 
-/** 生产单状态：Pending 待生产 / InProgress 生产中 / Finished 已完成 */
-export type SupplierProductionOrderStatus = 'Pending' | 'InProgress' | 'Finished';
+import type { CropOrder } from '@/types/cropOrder';
 
-export const SUPPLIER_PRODUCTION_ORDER_STATUS_LABEL: Record<SupplierProductionOrderStatus, string> =
-  {
-    Pending: '待生产',
-    InProgress: '生产中',
-    Finished: '已完成',
-  };
+/** 生产单状态：对齐 ErpProductionOrderSupplierSearchStatus */
+export type SupplierProductionOrderStatus =
+  | 'Pending'
+  | 'Ordered'
+  | 'InProgress'
+  | 'PartialComplete'
+  | 'Finished';
 
-/** 工厂领料状态 */
-export type FactoryReceiveMaterialStatus = 'PART' | 'COMPLETE';
-
-/** 物料确认到料状态（bom / 包材等） */
-export type ReceiveMaterialStatus = 'PENDING' | 'ARRIVED' | 'SHORTAGE' | 'QUALITY_ISSUE';
+/** 物料确认到料状态：对齐 ErpQuoteMaterialReceiveMaterialStatus */
+export type ReceiveMaterialStatus = 'Pending' | 'Arrived';
 
 export interface SupplierApiUser {
   id?: number;
@@ -42,10 +39,17 @@ export interface SupplierApiSizeRange {
   outboundQuantity?: number;
 }
 
-/** POST /api/production_orders/supplier/statistic */
-export interface ProductionOrderSupplierStatisticInput {
-  status?: SupplierProductionOrderStatus[];
+/** ErpProductionOrderSupplierSearchInput（统计与搜索共用） */
+export interface ProductionOrderSupplierSearchInput {
+  keyword?: string;
   productionOrderCode?: string;
+  code?: string;
+  color?: string;
+  customerCode?: string;
+  customerPO?: string;
+  productCode?: string;
+  type?: string;
+  status?: SupplierProductionOrderStatus[];
   isOverTime?: boolean;
 }
 
@@ -57,37 +61,26 @@ export interface ProductionOrderSupplierCount {
   inProgressQuantity: number;
   finishedQuantity: number;
   overTimeCount: number;
-  /** 超期生产单件数合计 */
   overTimeQuantity: number;
 }
 
-/** POST /api/production_orders/supplier/search */
-export interface ProductionOrderSupplierSearchInput {
-  keyword?: string;
-  productionOrderCode?: string;
-  isOverTime?: boolean;
-  /** query: page */
-  page?: number;
-  /** query: size */
-  size?: number;
-}
-
+/** schema 中除 id 外几乎全部可空，这里如实标注，避免映射时拼出 "null" 字面量 */
 export interface ProductionOrderSupplierSearchColorItem {
-  /** 生产色 id，对应详情 productionId */
-  id?: number;
-  productionOrderCode: string;
+  productionOrderCode?: string;
   code?: string;
   type?: string;
-  color: string;
-  status: string;
+  color?: string;
+  status?: string;
   factoryPlanedProductionDate?: string;
-  quantity?: number;
 }
 
 export interface ProductionOrderSupplierSearchRecord {
   saleOrderCode?: string;
-  productionOrderCode: string;
+  productionOrderCode?: string;
+  /** 设计款号等 */
   code?: string;
+  /** 大货款号 */
+  productCode?: string;
   type?: string;
   productionOrderType?: string;
   customerCode?: string;
@@ -100,11 +93,11 @@ export interface ProductionOrderSupplierSearchRecord {
   productionOrderStatus?: string;
   factoryPlanedProductionDate?: string;
   productionOrders?: ProductionOrderSupplierSearchColorItem[];
-  /** 便于列表展示的扩展字段（mock / BFF 可回传） */
-  productCode?: string;
-  category?: string;
-  designImageUrls?: string[];
-  requiredProductionDate?: string;
+  /** 款式类别 / 客户款号，对齐 erp-web templateDesign */
+  templateDesign?: {
+    category?: string;
+    customerCode?: string;
+  };
 }
 
 export interface ProductionOrderSupplierSearchResult {
@@ -113,10 +106,9 @@ export interface ProductionOrderSupplierSearchResult {
   pages: number;
   page: number;
   records: ProductionOrderSupplierSearchRecord[];
-  statistic?: ProductionOrderSupplierCount | Record<string, unknown>;
 }
 
-/** GET /api/production_orders/supplier/{productionOrderCode}?color= */
+/** getProductionOrder(productionOrderCode, color) */
 export interface SupplierBomItem {
   id: number;
   type?: string;
@@ -170,6 +162,7 @@ export interface SupplierExceptionRecord {
 
 export interface ProductionOrderSupplierDetail {
   productionOrderCode: string;
+  customerCode?: string;
   id: number;
   code?: string;
   type?: string;
@@ -182,8 +175,6 @@ export interface ProductionOrderSupplierDetail {
   productionType?: string;
   comment?: string;
   factoryPlanedProductionDate?: string;
-  /** 工厂领料状态 PART=部分到料 COMPLETE=全部到料 */
-  factoryReceiveMaterialStatus?: FactoryReceiveMaterialStatus;
   factory?: {
     id?: number;
     name?: string;
@@ -225,25 +216,53 @@ export interface ProductionOrderSupplierDetail {
     designImageUrls?: string[];
     brand?: SupplierApiBrand;
   };
+  /** 色码样衣图：首页 Hero = frontImages + backImages（正面优先） */
+  template?: {
+    frontImages?: { url: string; description?: string }[];
+    backImages?: { url: string; description?: string }[];
+  };
   bomItems?: SupplierBomItem[];
   materialPackages?: SupplierMaterialPackage[];
   packMaterials?: SupplierMaterialPackage[];
   exceptionRecords?: SupplierExceptionRecord[];
+  /** ErpCropOrderPreviewDto；无则尚未创建，不可用生产单 id 代替 */
+  cropOrder?: CropOrder;
+  /** ErpCropOrderPreviewDto；无则尚未创建，不可用生产单 id 代替 */
+  sewingOrder?: CropOrder;
+  /** ErpCropOrderPreviewDto；无则尚未创建，不可用生产单 id 代替 */
+  tailOrder?: CropOrder;
 }
 
-/** PUT /api/production_orders/supplier/confirm_arrive_material/{productionId} body */
+/** ErpQuoteMaterialInput：确认到料只回传定位与状态字段 */
+export interface ConfirmArriveBomItemInput {
+  id: number;
+  name?: string;
+  receiveMaterialStatus: ReceiveMaterialStatus;
+}
+
+/** ErpProductionCommonMaterialInput */
+export interface ConfirmArriveCommonMaterialInput {
+  id: string;
+  name?: string;
+  remark?: string;
+  receiveMaterialStatus: ReceiveMaterialStatus;
+}
+
+/** ErpProductionConfirmMaterialRequestInput：三个数组均为必填 */
 export interface ConfirmArriveMaterialInput {
-  bomItems?: SupplierBomItem[];
-  materialPackages?: SupplierMaterialPackage[];
-  packMaterials?: SupplierMaterialPackage[];
+  bomItems: ConfirmArriveBomItemInput[];
+  materialPackages: ConfirmArriveCommonMaterialInput[];
+  packMaterials: ConfirmArriveCommonMaterialInput[];
 }
 
-/** POST /api/production_orders/supplier/exception_record */
+/**
+ * ErpProductionExceptionRecordCreateRequestInput。
+ * schema 没有 reportContent 入参，上报正文与关联物料统一放进 moduleExtend。
+ */
 export interface CreateExceptionRecordInput {
   productionId: number;
   module: string;
-  moduleExtend?: Record<string, unknown>;
   type: string;
-  reporter?: SupplierApiUser;
-  reportContent?: string;
+  reporter: SupplierApiUser;
+  moduleExtend?: Record<string, unknown>;
 }
