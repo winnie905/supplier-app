@@ -139,9 +139,14 @@ android/app/build/outputs/apk/debug/app-debug.apk
 
 ### Release APK
 
+与 apex-app 相同：用 dotenv 带上 `.env.<env>` + `.env.local` 再 `assembleRelease`。正式包会先清 Metro / Android 缓存，避免沿用没有环境变量的旧 JS bundle（否则启动会因缺少 `VITE_USER_URL` 闪退）。
+
 ```bash
-cd android
-./gradlew assembleRelease
+# 本地验证（会先 clean）
+npm run apk:dev
+
+npm run apk:uat
+npm run apk:prod
 ```
 
 产物路径：
