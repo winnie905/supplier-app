@@ -58,6 +58,28 @@ cd ..
 brew install cocoapods
 ```
 
+## 本地环境变量（`.env.local`）
+
+仓库已提交各环境公共配置：`.env.dev` / `.env.uat` / `.env.production`。
+本地还需要自行创建 **`.env.local`**（已在 `.gitignore` 中，勿提交），否则启动 / 打包会因缺少 `VITE_USER_URL` 失败。
+
+在项目根目录创建文件：
+
+```bash
+# .env.local
+VITE_USER_URL=https://dev.login.dnjapex.com
+```
+
+说明：
+
+- `VITE_USER_URL`：下载页域名，**不要**带路径；代码会自动拼成 `{VITE_USER_URL}/app-download`
+- 按要跑的环境改域名即可：
+  - dev：`https://dev.login.dnjapex.com`
+  - uat：`https://uat.login.dnjapex.com`
+  - prod：`https://login.dnjapex.com`
+- 脚本加载顺序为 `.env.<env>` → `.env.local`（后者覆盖同名变量）
+- CI 不依赖此文件，由 GitHub Variables（如 `PROD_VITE_USER_URL`）映射为 `VITE_USER_URL`
+
 ## 启动项目
 
 ### 启动 Metro
@@ -157,7 +179,9 @@ npm run typecheck
 
 ```text
 .
-├── .github/workflows/production.yml
+├── .github/workflows/prod.yml
+├── .github/workflows/uat.yml
+├── .github/workflows/dev.yml
 ├── .github/workflows/pr-review.yml
 ├── android
 ├── ios

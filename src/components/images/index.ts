@@ -30,6 +30,7 @@ export const appsBackgroundImage: ImageSourcePropType = require('@/assets/images
 export const companyImage: ImageSourcePropType = require('@/assets/images/company.png');
 export const orderSearchEntryImage: ImageSourcePropType = require('@/assets/images/orderSearchEntry.png');
 export const orderSearchBackgroundImage: ImageSourcePropType = require('@/assets/images/orderSearchBg.png');
+export const forceUpdateImage: ImageSourcePropType = require('@/assets/images/upgrade.png');
 export const tabApplicationActiveImage: ImageSourcePropType = require('@/assets/icons/tab/application_active.png');
 export const tabReportActiveImage: ImageSourcePropType = require('@/assets/icons/tab/report_active.png');
 export const tabManagementActiveImage: ImageSourcePropType = require('@/assets/icons/tab/management_active.png');

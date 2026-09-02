@@ -7,7 +7,7 @@ import { Platform, StatusBar } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 
 import { env } from '@/config/env';
-import { COMPRESS_DIRECTORY_NAME, ORIGINAL_MAP_CATALOG_NAME } from '@/constants/app';
+import { APP_VERSION, COMPRESS_DIRECTORY_NAME, ORIGINAL_MAP_CATALOG_NAME } from '@/constants/app';
 import { useRuntimeConfigStore } from '@/store/runtimeConfigStore';
 
 const shouldLog = env.APP_ENV === 'dev';
@@ -41,7 +41,7 @@ interface BuildUserAgentOptions {
 export function buildUserAgent(options: BuildUserAgentOptions = {}) {
   const { appName = 'APEX', channel, env: envName, includeBundleId = false } = options;
 
-  const appVersion = DeviceInfo.getVersion();
+  const appVersion = APP_VERSION;
   const buildNumber = DeviceInfo.getBuildNumber();
   const systemName = DeviceInfo.getSystemName();
   const systemVersion = DeviceInfo.getSystemVersion();

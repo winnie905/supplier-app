@@ -8,11 +8,4 @@ export {
   saveRuntimeConfigStorage,
   STACK_HEADER_TOOLBAR_HEIGHT,
 } from './common';
-export {
-  compareVersion,
-  exitAppSafely,
-  getDismissedOptionalUpdateVersion,
-  isVersionLowerThan,
-  openUpdateTarget,
-  setDismissedOptionalUpdateVersion,
-} from './version';
+export { compareVersion, openUpdateTarget } from './version';

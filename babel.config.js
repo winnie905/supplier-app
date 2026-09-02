@@ -16,7 +16,14 @@ module.exports = {
     [
       'transform-inline-environment-variables',
       {
-        include: ['APP_ENV', 'API_BASE_URL', 'GRAPHQL_URL'],
+        include: [
+          'APP_ENV',
+          'API_BASE_URL',
+          'GRAPHQL_URL',
+          'BUILD_INFO_URL',
+          'VITE_USER_URL',
+          'APP_VERSION',
+        ],
       },
     ],
     'react-native-reanimated/plugin',

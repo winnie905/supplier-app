@@ -1,0 +1,250 @@
+name: Development
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Write forceUpdate=true to buildInfo.json.'
+        required: true
+        default: false
+        type: boolean
+
+      update_contents:
+        description: '更新内容，JSON 数组，例如 ["收货扫码优化","性能优化，体验更流畅"]'
+        required: false
+        default: '[]'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-android-release:
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      AWS_REGION: ${{ vars.AWS_CN_REGION || 'cn-northwest-1' }}
+      AWS_S3_BUCKET: apex-erp
+      APK_S3_KEY: supplier-app/dev/android/latest.apk
+      BUILD_INFO_S3_KEY: supplier-app/dev/android/buildInfo.json
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Resolve release version
+        id: version
+        env:
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+        shell: bash
+        run: |
+          if [[ "${RELEASE_REF_TYPE}" != "tag" || "${RELEASE_REF_NAME}" != v* ]]; then
+            echo "Use workflow from must be an existing v* tag, for example v1.0.0."
+            exit 1
+          fi
+
+          version_name="${RELEASE_REF_NAME#v}"
+          version_code="${GITHUB_RUN_NUMBER}"
+
+          echo "version_name=${version_name}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${version_code}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate update_contents input
+        env:
+          UPDATE_CONTENTS: ${{ inputs.update_contents }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const raw = process.env.UPDATE_CONTENTS?.trim() || '[]';
+
+          let updateContents;
+          try {
+            updateContents = JSON.parse(raw);
+          } catch {
+            console.error(
+              'Invalid update_contents. Expected a JSON array of strings, e.g. ["性能优化"]. Tip: use ASCII double quotes, no trailing commas.',
+            );
+            process.exit(1);
+          }
+
+          if (!Array.isArray(updateContents) || !updateContents.every((item) => typeof item === 'string')) {
+            console.error('update_contents must be a JSON array of strings.');
+            process.exit(1);
+          }
+
+          console.log(`update_contents OK (${updateContents.length} item(s)).`);
+          NODE
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Validate required configuration
+        env:
+          DESIGN_SYSTEM_NATIVE_DEPLOY_KEY: ${{ secrets.DESIGN_SYSTEM_NATIVE_DEPLOY_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CN_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CN_AWS_SECRET_ACCESS_KEY }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          required_vars=(
+            DESIGN_SYSTEM_NATIVE_DEPLOY_KEY
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+            AWS_S3_BUCKET
+            ANDROID_KEYSTORE_PASSWORD
+            ANDROID_KEY_PASSWORD
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name}" ]; then
+              echo "Missing required configuration: ${var_name}"
+              exit 1
+            fi
+          done
+
+      - name: Setup SSH for private dependencies
+        env:
+          DESIGN_SYSTEM_NATIVE_DEPLOY_KEY: ${{ secrets.DESIGN_SYSTEM_NATIVE_DEPLOY_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DESIGN_SYSTEM_NATIVE_DEPLOY_KEY" > ~/.ssh/design_system_deploy_key
+          chmod 600 ~/.ssh/design_system_deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<'EOF'
+          Host github.com
+            HostName github.com
+            User git
+            IdentityFile ~/.ssh/design_system_deploy_key
+            IdentitiesOnly yes
+          EOF
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --fund=false
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x android/gradlew
+
+      - name: Build signed Android release APK
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version_name }}
+          ANDROID_KEYSTORE_PATH: app/supplier-app-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: supplier-app
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          ANDROID_VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VITE_USER_URL: ${{ vars.DEV_VITE_USER_URL }}
+        run: |
+          set -a
+          . ./.env.dev
+          set +a
+
+          if [ -z "${VITE_USER_URL:-}" ]; then
+            echo "Missing required configuration: DEV_VITE_USER_URL (GitHub variable → VITE_USER_URL)"
+            exit 1
+          fi
+
+          cd android
+          ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a
+
+      - name: Prepare release assets
+        id: asset
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          FORCE_UPDATE: ${{ inputs.force_update }}
+          UPDATE_CONTENTS: ${{ inputs.update_contents }}
+        shell: bash
+        run: |
+          mkdir -p release
+
+          asset_path="release/supplier-app-${VERSION_NAME}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$asset_path"
+          cp android/app/build/outputs/apk/release/app-release.apk release/latest.apk
+
+          export TZ="Asia/Shanghai"
+          export BUILD_TIME=$(date +"%Y/%m/%d %H:%M:%S")
+          export GIT_HASH=$(git rev-parse --short HEAD)
+
+          node <<'NODE'
+          const fs = require('fs');
+          const raw = process.env.UPDATE_CONTENTS?.trim() || '[]';
+
+          let updateContents;
+          try {
+            updateContents = JSON.parse(raw);
+          } catch {
+            console.error('Invalid update_contents. Expected a JSON array of strings, e.g. ["性能优化"]');
+            process.exit(1);
+          }
+
+          if (!Array.isArray(updateContents) || !updateContents.every((item) => typeof item === 'string')) {
+            console.error('update_contents must be a JSON array of strings.');
+            process.exit(1);
+          }
+
+          updateContents = updateContents.map((item) => item.trim()).filter(Boolean);
+
+          const buildInfo = {
+            gitHash: process.env.GIT_HASH,
+            buildTime: process.env.BUILD_TIME,
+            version: process.env.VERSION_NAME,
+            latestVersion: process.env.VERSION_NAME,
+            forceUpdate: process.env.FORCE_UPDATE === 'true',
+            updateContents,
+          };
+
+          fs.writeFileSync('release/buildInfo.json', `${JSON.stringify(buildInfo)}\n`);
+          NODE
+
+          echo "Generated buildInfo.json:"
+          cat release/buildInfo.json
+          echo "asset_path=$asset_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supplier-app-${{ steps.version.outputs.version_name }}-apk
+          path: ${{ steps.asset.outputs.asset_path }}
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: supplier-app ${{ steps.version.outputs.version_name }}
+          files: ${{ steps.asset.outputs.asset_path }}
+          generate_release_notes: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.CN_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.CN_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload APK to S3
+        run: aws s3 cp release/latest.apk "s3://${AWS_S3_BUCKET}/${APK_S3_KEY}"
+
+      - name: Upload build info to S3
+        run: aws s3 cp release/buildInfo.json "s3://${AWS_S3_BUCKET}/${BUILD_INFO_S3_KEY}" --content-type application/json

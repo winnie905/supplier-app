@@ -6,11 +6,12 @@ import {
   type NavigationState,
 } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
 import BootSplash from 'react-native-bootsplash';
 
 import { AppProviders } from '@/app/AppProviders';
 import { navigationRef } from '@/app/navigationRef';
+import { ForceUpdateModal } from '@/components/ForceUpdateModal';
 import { Loading } from '@/components/Loading';
 import { apolloClient } from '@/graphql/client';
 import { useAppInitialization } from '@/hooks/useAppInitialization';
@@ -23,7 +24,7 @@ import { useNetworkStore } from '@/store/networkStore';
 import { initSessionPollingLifecycle } from '@/utils/auth/sessionPolling';
 
 const AppContent = () => {
-  const { isReady } = useAppInitialization();
+  const { isReady, versionState } = useAppInitialization();
   const { colorMode, colors } = useAppTheme();
   const { isLoading } = useAppStore();
   const careModeEnabled = useCareModeStore((state) => state.enabled);
@@ -68,12 +69,12 @@ const AppContent = () => {
   );
 
   useEffect(() => {
-    if (!isReady || Platform.OS !== 'android') {
+    if (!isReady || versionState.type === 'force_update' || Platform.OS !== 'android') {
       return;
     }
 
     syncNavigationBar();
-  }, [isReady, syncNavigationBar]);
+  }, [isReady, syncNavigationBar, versionState.type]);
 
   useEffect(() => {
     if (!isReady) {
@@ -81,6 +82,14 @@ const AppContent = () => {
     }
     void BootSplash.hide({ fade: true });
   }, [isReady]);
+
+  if (versionState.type === 'force_update') {
+    return (
+      <View style={styles.forceUpdateRoot}>
+        <ForceUpdateModal visible policy={versionState.policy} />
+      </View>
+    );
+  }
 
   return (
     <>
@@ -112,3 +121,10 @@ const App = () => {
 };
 
 export default App;
+
+const styles = StyleSheet.create({
+  forceUpdateRoot: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+});
