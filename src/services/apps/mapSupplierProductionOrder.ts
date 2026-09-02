@@ -11,6 +11,7 @@ export {
   mapSearchRecordToOrderView,
   mapStatisticToTabStats,
   resolveTabForOrder,
+  sortOrdersByLastDeliveryDate,
   tabToSearchFilter,
   tabToSupplierStatus,
 } from '@/services/apps/mapSupplierProductionOrderList';

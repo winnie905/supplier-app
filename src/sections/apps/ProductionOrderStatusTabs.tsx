@@ -154,7 +154,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 8,
-    justifyContent: 'center',
   },
   tabWrap: {
     width: TAB_SIZE,

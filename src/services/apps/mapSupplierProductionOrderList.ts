@@ -4,6 +4,7 @@ import {
   mapSupplierStatusToAggregate,
 } from '@/services/apps/mapSupplierProductionOrderHelpers';
 import type {
+  DeliverySortOrder,
   ProductionOrderListResult,
   ProductionOrderTab,
   ProductionOrderTabStat,
@@ -329,17 +330,23 @@ export const mapSearchRecordToOrderView = (
   };
 };
 
+export const sortOrdersByLastDeliveryDate = (
+  orders: readonly ProductionOrderView[],
+  sort: DeliverySortOrder,
+): ProductionOrderView[] => {
+  const sign = sort === 'asc' ? 1 : -1;
+  return [...orders].sort((a, b) => sign * a.lastDeliveryDate.localeCompare(b.lastDeliveryDate));
+};
+
 export const mapSearchRecordsToSortedOrders = (
   records: ProductionOrderSupplierSearchRecord[],
-  sort: 'asc' | 'desc',
+  sort: DeliverySortOrder,
 ): ProductionOrderView[] => {
   const today = todayString();
-  return records
-    .map((record) => mapSearchRecordToOrderView(record, today))
-    .sort((a, b) => {
-      const cmp = a.lastDeliveryDate.localeCompare(b.lastDeliveryDate);
-      return sort === 'asc' ? cmp : -cmp;
-    });
+  return sortOrdersByLastDeliveryDate(
+    records.map((record) => mapSearchRecordToOrderView(record, today)),
+    sort,
+  );
 };
 
 export const buildTabStatsFromStatistic = (

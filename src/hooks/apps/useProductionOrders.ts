@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useKeywordSearch } from '@/hooks/useKeywordSearch';
-import { buildTabStatsFromStatistic } from '@/services/apps/mapSupplierProductionOrder';
+import {
+  buildTabStatsFromStatistic,
+  sortOrdersByLastDeliveryDate,
+} from '@/services/apps/mapSupplierProductionOrder';
 import { productionOrderService } from '@/services/apps/productionOrderService';
 import type {
   DeliverySortOrder,
@@ -63,7 +66,7 @@ export const useProductionOrders = ({
   const [loading, setLoading] = useState(enabled);
   const [ready, setReady] = useState(false);
 
-  const scopeKey = `${productionOrderCode ?? ''}\0${keyword}\0${sort}`;
+  const scopeKey = `${productionOrderCode ?? ''}\0${keyword}`;
   const requestIdRef = useRef(0);
 
   const refresh = useCallback(
@@ -91,7 +94,7 @@ export const useProductionOrders = ({
         const listParams = {
           keyword,
           ...(code ? { productionOrderCode: code } : {}),
-          sort,
+          sort: 'asc' as const,
         };
 
         const [statistic, ...lists] = await Promise.all([
@@ -123,26 +126,35 @@ export const useProductionOrders = ({
         }
       }
     },
-    [enabled, keyword, productionOrderCode, sort],
+    [enabled, keyword, productionOrderCode],
   );
 
   useEffect(() => {
     void refresh();
   }, [refresh, scopeKey]);
 
+  // 只排当前 Tab，切换正倒序不重拉接口
+  const sortedOrdersByTab = useMemo<OrdersByTab>(
+    () => ({
+      ...ordersByTab,
+      [tab]: sortOrdersByLastDeliveryDate(ordersByTab[tab], sort),
+    }),
+    [ordersByTab, sort, tab],
+  );
+
   const data = useMemo<ProductionOrderListResult | null>(() => {
     if (!enabled) return null;
     return {
       supplierName: '',
       totalOrderCount,
-      orders: ordersByTab[tab] ?? [],
+      orders: sortedOrdersByTab[tab] ?? [],
       tabStats,
     };
-  }, [enabled, ordersByTab, tab, tabStats, totalOrderCount]);
+  }, [enabled, sortedOrdersByTab, tab, tabStats, totalOrderCount]);
 
   return {
     data,
-    ordersByTab,
+    ordersByTab: sortedOrdersByTab,
     ready,
     loading: enabled && loading && !ready,
     refresh,

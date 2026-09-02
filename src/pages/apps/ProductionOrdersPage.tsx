@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { designTokens, useToast } from 'design-system-native';
-import { memo, useCallback, useId, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -27,6 +27,7 @@ import {
   useProductionOrders,
 } from '@/hooks/apps/useProductionOrders';
 import type { AppsScreenProps } from '@/navigation/types';
+import { DeliverySortMenu } from '@/sections/apps/DeliverySortMenu';
 import { OrderSearchScreenBackground } from '@/sections/apps/OrderSearchScreenBackground';
 import { ProductionOrderCard } from '@/sections/apps/ProductionOrderCard';
 import { ProductionOrderStatusTabs } from '@/sections/apps/ProductionOrderStatusTabs';
@@ -180,7 +181,9 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
     route.params?.productionOrderCode ?? '',
   );
   const [tab, setTab] = useState<ProductionOrderTab>(route.params?.tab ?? 'in_progress');
-  const [sort] = useState<DeliverySortOrder>('asc');
+  const [sort, setSort] = useState<DeliverySortOrder>('asc');
+  const [isSortPending, setIsSortPending] = useState(false);
+  const sortTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const [emptyPanelSize, setEmptyPanelSize] = useState({ width: 0, height: 0 });
@@ -200,6 +203,26 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
     sort,
     enabled: true,
   });
+  const handleSortChange = useCallback((next: DeliverySortOrder) => {
+    setIsSortPending(true);
+    if (sortTimerRef.current) {
+      clearTimeout(sortTimerRef.current);
+    }
+    sortTimerRef.current = setTimeout(() => {
+      sortTimerRef.current = null;
+      setSort(next);
+      setIsSortPending(false);
+    }, 0);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (sortTimerRef.current) {
+        clearTimeout(sortTimerRef.current);
+      }
+    },
+    [],
+  );
   const { getCategoryLabel } = useProductCategories();
 
   useFocusEffect(
@@ -362,7 +385,14 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
             <View style={styles.listWrap}>
               <View style={styles.listHeader}>
                 <Text style={styles.totalCountInline}>共 {totalOrderCount} 个订单</Text>
-                <ProductionOrderStatusTabs activeTab={tab} tabStats={tabStats} onChange={setTab} />
+                <View style={styles.statusBlock}>
+                  <ProductionOrderStatusTabs
+                    activeTab={tab}
+                    tabStats={tabStats}
+                    onChange={setTab}
+                  />
+                  <DeliverySortMenu value={sort} onChange={handleSortChange} />
+                </View>
               </View>
 
               <View style={styles.ordersPanel} onLayout={onPanelLayout}>
@@ -389,6 +419,11 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
                     />
                   ))}
                 </View>
+                {isSortPending ? (
+                  <View pointerEvents="auto" style={styles.sortLoadingOverlay}>
+                    <WorkbenchRefreshIndicator />
+                  </View>
+                ) : null}
               </View>
             </View>
           )}
@@ -445,11 +480,15 @@ const styles = StyleSheet.create({
   },
   listWrap: {
     flex: 1,
+    overflow: 'visible',
   },
   listHeader: {
     gap: 10,
-    paddingBottom: 12,
+    paddingBottom: 0,
     paddingHorizontal: 12,
+  },
+  statusBlock: {
+    alignSelf: 'center',
   },
   totalCountInline: {
     paddingHorizontal: 4,
@@ -461,7 +500,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingHorizontal: 10,
     backgroundColor: '#EEF5FA',
     overflow: 'hidden',
@@ -494,6 +533,13 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 24,
     gap: 12,
+  },
+  sortLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(238, 245, 250, 0.72)',
   },
   emptyImage: {
     width: 170,
