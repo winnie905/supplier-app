@@ -2,12 +2,13 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Card, Modal, VStack } from 'design-system-native';
 import { useMemo, useState } from 'react';
 import { ImageBackground, ScrollView, StyleSheet, View } from 'react-native';
-import { getVersion } from 'react-native-device-info';
 
 import CareModeIcon from '@/assets/icons/care.svg';
+import CloseIcon from '@/assets/icons/close.svg';
 import InfoIcon from '@/assets/icons/icon_about.svg';
 import { meBackgroundImage } from '@/components/images';
 import { ToggleSwitch } from '@/components/ToggleSwitch';
+import { APP_VERSION } from '@/constants/app';
 import { ROUTES } from '@/constants/routes';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import type { MeScreenProps } from '@/navigation/types';
@@ -27,6 +28,7 @@ export const MePage = ({ navigation }: MePageProps) => {
   const signOut = useAuthStore((state) => state.signOut);
   const user = useAuthStore((state) => state.user);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const careModeEnabled = useCareModeStore((state) => state.enabled);
   const setCareModeEnabled = useCareModeStore((state) => state.setEnabled);
   const setLoading = useAppStore((state) => state.setLoading);
@@ -38,13 +40,20 @@ export const MePage = ({ navigation }: MePageProps) => {
         onPress: () => {
           navigation.navigate(ROUTES.ME.ABOUT);
         },
-        rightLabel: getVersion(),
+        rightLabel: APP_VERSION,
         title: '关于',
       },
       {
         icon: <CareModeIcon color={colors.text} />,
         rightLabel: <ToggleSwitch value={careModeEnabled} onValueChange={setCareModeEnabled} />,
         title: '关怀模式',
+      },
+      {
+        icon: <CloseIcon color={colors.text} />,
+        onPress: () => {
+          setIsDeleteAccountOpen(true);
+        },
+        title: '注销账号',
       },
     ],
     [careModeEnabled, colors.text, navigation, setCareModeEnabled],
@@ -65,6 +74,10 @@ export const MePage = ({ navigation }: MePageProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseDeleteAccount = () => {
+    setIsDeleteAccountOpen(false);
   };
 
   if (!user) {
@@ -131,6 +144,16 @@ export const MePage = ({ navigation }: MePageProps) => {
           okText="退出登录"
           onCancel={handleCloseLogoutModal}
           onOk={handleConfirmLogout}
+        />
+
+        <Modal
+          visible={isDeleteAccountOpen}
+          animationType="fade"
+          onClose={handleCloseDeleteAccount}
+          title="注销账号"
+          content="我们正在处理您的删除请求，大概需要5个工作日。"
+          okText="确定"
+          onOk={handleCloseDeleteAccount}
         />
       </ImageBackground>
     </View>
