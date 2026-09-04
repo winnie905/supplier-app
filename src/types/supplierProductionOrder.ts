@@ -39,6 +39,14 @@ export interface SupplierApiSizeRange {
   outboundQuantity?: number;
 }
 
+/**
+ * 列表排序节点，对齐 erp-web `getSortParams`：
+ * `{ sort: [{ [field]: { order: 'asc' | 'desc' } }] }`
+ */
+export interface ProductionOrderSortNode {
+  sort: Record<string, { order: 'asc' | 'desc' }>[];
+}
+
 /** ErpProductionOrderSupplierSearchInput（统计与搜索共用） */
 export interface ProductionOrderSupplierSearchInput {
   keyword?: string;
@@ -51,6 +59,8 @@ export interface ProductionOrderSupplierSearchInput {
   type?: string;
   status?: SupplierProductionOrderStatus[];
   isOverTime?: boolean;
+  /** schema 为 ErpJSON；最后交期排序传 multiColorProductCoreData.factoryPlanedProductionDate */
+  sortNode?: ProductionOrderSortNode;
 }
 
 export interface ProductionOrderSupplierCount {

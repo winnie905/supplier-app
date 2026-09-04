@@ -84,6 +84,27 @@ interface CommitSessionOptions {
 
 const canCommitAuthState = (shouldCommit?: AuthFlowGuard) => !shouldCommit || shouldCommit();
 
+const profileSnapshot = (user: AuthUser | null | undefined) =>
+  JSON.stringify({
+    permissions: user?.permissions ?? null,
+    supplier: user?.supplier ?? null,
+  });
+
+const mergePolledUser = (
+  prev: AuthUser | null | undefined,
+  incoming: AuthUser | null | undefined,
+): AuthUser | null => {
+  if (!incoming) return prev ?? null;
+  if (!prev) return incoming;
+
+  return {
+    ...prev,
+    ...incoming,
+    supplier: incoming.supplier ? { ...prev.supplier, ...incoming.supplier } : prev.supplier,
+    products: incoming.products?.length ? incoming.products : prev.products,
+  };
+};
+
 /**
  * 创建新的认证主流程保护器。
  *
@@ -259,7 +280,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return null;
     }
 
-    const nextUser = userInfo ?? session.user ?? null;
+    const nextUser = mergePolledUser(session.user, userInfo);
     const nextSession = buildSessionWithPermissions(session, nextUser);
 
     const committed = commitSession(nextSession, options);
@@ -430,6 +451,41 @@ export const useAuthStore = create<AuthState>((set, get) => {
         reason: 'kickedOffline',
         skipLogoutRequest: true,
       });
+    },
+
+    /**
+     * 前台轮询：拉最新 user。权限或供应商信息有更新时写回 Zustand + 本地 session。
+     */
+    syncPolledProfile: async () => {
+      const shouldCommit = createCurrentAuthFlowGuard();
+      const session = await getSession();
+
+      if (!session?.token || !shouldCommit() || !get().isSignedIn) {
+        return;
+      }
+
+      const product = buildProductParam(session.products);
+      const userInfo = await getUserInfo(product);
+
+      if (!shouldCommit() || !get().isSignedIn) {
+        return;
+      }
+
+      const latest = await getSession();
+      if (!latest?.token || !shouldCommit()) {
+        return;
+      }
+
+      const nextSession = buildSessionWithPermissions(
+        latest,
+        mergePolledUser(latest.user, userInfo),
+      );
+
+      if (profileSnapshot(latest.user) === profileSnapshot(nextSession.user)) {
+        return;
+      }
+
+      commitSession(nextSession, { persist: true, shouldCommit });
     },
     /**
      * 获取当前用户信息。

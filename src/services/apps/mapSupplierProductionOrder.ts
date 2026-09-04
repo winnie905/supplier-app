@@ -6,12 +6,12 @@ export {
   mapSupplierStatusToAggregate,
 } from '@/services/apps/mapSupplierProductionOrderHelpers';
 export {
+  buildLastDeliveryDateSortNode,
   buildTabStatsFromStatistic,
-  mapSearchRecordsToSortedOrders,
+  mapSearchRecordsToOrders,
   mapSearchRecordToOrderView,
   mapStatisticToTabStats,
   resolveTabForOrder,
-  sortOrdersByLastDeliveryDate,
   tabToSearchFilter,
   tabToSupplierStatus,
 } from '@/services/apps/mapSupplierProductionOrderList';

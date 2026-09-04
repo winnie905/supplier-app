@@ -5,10 +5,9 @@
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { SESSION_CHECK_INTERVAL_MS } from '@/constants/auth';
-import { getUserInfo } from '@/services/auth/authService';
 import { getAuthGeneration, useAuthStore } from '@/store/authStore';
 import { getSession, peekSessionCache } from '@/utils/auth/authStorage';
-import { buildProductParam, findKickedOfflineError } from '@/utils/auth/sessionError';
+import { findKickedOfflineError } from '@/utils/auth/sessionError';
 
 let sessionCheckTimer: ReturnType<typeof setInterval> | null = null;
 let isCheckingSession = false;
@@ -49,8 +48,7 @@ export const checkSessionOnce = async (): Promise<void> => {
     }
 
     requestToken = session.token;
-    const product = buildProductParam(session.products);
-    await getUserInfo(product);
+    await useAuthStore.getState().syncPolledProfile();
   } catch (error) {
     const kickedOffline = findKickedOfflineError(error);
     if (!kickedOffline) {

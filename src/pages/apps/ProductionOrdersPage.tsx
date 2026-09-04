@@ -40,15 +40,27 @@ type ProductionOrdersPageProps = AppsScreenProps<'ProductionOrders'>;
 const keyExtractor = (item: ProductionOrderView, index: number) =>
   item.productionOrderCode || String(index);
 
+/** 距底部小于该距离时加载下一页（不依赖 FlatList onEndReached，嵌套手势下经常不触发） */
+const LOAD_MORE_DISTANCE_PX = 160;
+
+const isNearListEnd = (event: NativeSyntheticEvent<NativeScrollEvent>): boolean => {
+  const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+  if (contentSize.height <= 0 || layoutMeasurement.height <= 0) return false;
+  return contentSize.height - layoutMeasurement.height - contentOffset.y <= LOAD_MORE_DISTANCE_PX;
+};
+
 interface OrderTabPanelProps {
   tabKey: ProductionOrderTab;
   active: boolean;
   data: ProductionOrderView[];
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   expandedIds: string[];
   contentContainerStyle: object;
   getCategoryLabel: (categoryKey?: string) => string;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onEndReached?: () => void;
   onToggleExpand: (id: string) => void;
   onColorPress: (ref: { productionOrderCode: string; color: string }) => void;
 }
@@ -58,10 +70,13 @@ const OrderTabPanel = memo(function OrderTabPanel({
   active,
   data,
   loading,
+  loadingMore,
+  hasMore,
   expandedIds,
   contentContainerStyle,
   getCategoryLabel,
   onScroll,
+  onEndReached,
   onToggleExpand,
   onColorPress,
 }: OrderTabPanelProps) {
@@ -96,6 +111,41 @@ const OrderTabPanel = memo(function OrderTabPanel({
     [loading],
   );
 
+  const footer = useMemo(() => {
+    if (loadingMore) {
+      return (
+        <View style={styles.loadMoreFooter}>
+          <WorkbenchRefreshIndicator label="加载中..." />
+        </View>
+      );
+    }
+    if (hasMore && data.length > 0) {
+      return (
+        <View style={styles.loadMoreFooter}>
+          <Text style={styles.loadMoreHint}>上划加载更多数据</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [data.length, hasMore, loadingMore]);
+
+  const maybeLoadMore = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (active && data.length > 0 && isNearListEnd(event)) {
+        onEndReached?.();
+      }
+    },
+    [active, data.length, onEndReached],
+  );
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      onScroll(event);
+      maybeLoadMore(event);
+    },
+    [maybeLoadMore, onScroll],
+  );
+
   return (
     <View
       pointerEvents={active ? 'auto' : 'none'}
@@ -105,17 +155,25 @@ const OrderTabPanel = memo(function OrderTabPanel({
         data={data}
         keyExtractor={keyExtractor}
         style={styles.list}
-        contentContainerStyle={contentContainerStyle}
+        contentContainerStyle={
+          data.length === 0
+            ? [contentContainerStyle, styles.listContentGrow]
+            : contentContainerStyle
+        }
         showsVerticalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
         scrollEventThrottle={16}
-        onScroll={onScroll}
+        onScroll={handleScroll}
+        onMomentumScrollEnd={maybeLoadMore}
+        onEndReached={active ? onEndReached : undefined}
+        onEndReachedThreshold={0.4}
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         windowSize={5}
         removeClippedSubviews
         ListEmptyComponent={empty}
+        ListFooterComponent={footer}
         renderItem={renderItem}
       />
     </View>
@@ -183,7 +241,7 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
   const [tab, setTab] = useState<ProductionOrderTab>(route.params?.tab ?? 'in_progress');
   const [sort, setSort] = useState<DeliverySortOrder>('asc');
   const [isSortPending, setIsSortPending] = useState(false);
-  const sortTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sawSortFetchRef = useRef(false);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
   const [emptyPanelSize, setEmptyPanelSize] = useState({ width: 0, height: 0 });
@@ -196,33 +254,37 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // 进入页并行拉统计 + 四 Tab 列表；切换 Tab 只切本地缓存
-  const { data, ordersByTab, loading, refresh } = useProductionOrders({
-    keyword,
-    ...(productionOrderCode ? { productionOrderCode } : {}),
-    tab,
-    sort,
-    enabled: true,
-  });
+  const { data, ordersByTab, loading, isFetching, loadingMore, hasMore, loadMore, refresh } =
+    useProductionOrders({
+      keyword,
+      ...(productionOrderCode ? { productionOrderCode } : {}),
+      tab,
+      sort,
+      enabled: true,
+    });
   const handleSortChange = useCallback((next: DeliverySortOrder) => {
+    sawSortFetchRef.current = false;
     setIsSortPending(true);
-    if (sortTimerRef.current) {
-      clearTimeout(sortTimerRef.current);
-    }
-    sortTimerRef.current = setTimeout(() => {
-      sortTimerRef.current = null;
-      setSort(next);
-      setIsSortPending(false);
-    }, 0);
+    setSort(next);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (sortTimerRef.current) {
-        clearTimeout(sortTimerRef.current);
-      }
-    },
-    [],
-  );
+  useEffect(() => {
+    if (!isSortPending) {
+      sawSortFetchRef.current = false;
+      return;
+    }
+    if (isFetching) {
+      sawSortFetchRef.current = true;
+      return;
+    }
+    if (sawSortFetchRef.current) {
+      setIsSortPending(false);
+    }
+  }, [isFetching, isSortPending]);
+
+  const handleEndReached = useCallback(() => {
+    void loadMore();
+  }, [loadMore]);
   const { getCategoryLabel } = useProductCategories();
 
   useFocusEffect(
@@ -410,10 +472,13 @@ export const ProductionOrdersPage = ({ navigation, route }: ProductionOrdersPage
                       active={tab === tabKey}
                       data={ordersByTab[tabKey]}
                       loading={loading}
+                      loadingMore={tab === tabKey && loadingMore}
+                      hasMore={tab === tabKey && hasMore}
                       expandedIds={expandedIds}
                       contentContainerStyle={listContentStyle}
                       getCategoryLabel={getCategoryLabel}
                       onScroll={scrollHandlers[tabKey]}
+                      onEndReached={handleEndReached}
                       onToggleExpand={toggleExpand}
                       onColorPress={handleColorPress}
                     />
@@ -525,6 +590,8 @@ const styles = StyleSheet.create({
   ordersListContent: {
     gap: 12,
     paddingBottom: 24,
+  },
+  listContentGrow: {
     flexGrow: 1,
   },
   listEmpty: {
@@ -533,6 +600,15 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 24,
     gap: 12,
+  },
+  loadMoreFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  loadMoreHint: {
+    fontSize: 13,
+    color: designTokens.colors.gray[500],
   },
   sortLoadingOverlay: {
     ...StyleSheet.absoluteFillObject,

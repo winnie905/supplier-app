@@ -64,6 +64,8 @@ export interface AuthState {
     skipLogoutRequest?: boolean;
   }) => Promise<void>;
   handleSessionKickedOffline: (message?: string) => Promise<void>;
+  /** 前台轮询拉取用户信息；权限或供应商信息有更新时写回本地 session */
+  syncPolledProfile: () => Promise<void>;
 }
 
 export interface LoginSession {

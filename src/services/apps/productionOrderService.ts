@@ -10,9 +10,10 @@ import {
   PRODUCTION_ORDER_SUPPLIER_STATISTIC,
 } from '@/graphql/operations/productionOrder/operations';
 import {
+  buildLastDeliveryDateSortNode,
   buildTabStatsFromStatistic,
   mapDetailToProductionOrderVO,
-  mapSearchRecordsToSortedOrders,
+  mapSearchRecordsToOrders,
   mapSearchRecordToOrderView,
   tabToSearchFilter,
 } from '@/services/apps/mapSupplierProductionOrder';
@@ -34,6 +35,8 @@ import type {
 } from '@/types/supplierProductionOrder';
 
 const DEFAULT_PAGE_SIZE = 50;
+/** 订单查询列表默认分页 */
+export const PRODUCTION_ORDER_LIST_PAGE_SIZE = 20;
 /** 搜索预览无 template.frontImages，列表缩略图按色补拉时的并发上限 */
 const FRONT_IMAGE_ENRICH_CONCURRENCY = 6;
 
@@ -172,27 +175,42 @@ export const productionOrderService = {
 
   /**
    * 订单查询：仅拉当前 Tab 列表（不含统计，便于 Tab 切换少打接口）。
+   * 排序走 input.sortNode（erp-web getSortParams 结构），分页默认 20 条。
    */
   async fetchOrderList(params: {
     keyword?: string;
     productionOrderCode?: string;
     tab: ProductionOrderTab;
     sort: DeliverySortOrder;
-  }): Promise<ProductionOrderView[]> {
+    page?: number;
+    size?: number;
+  }): Promise<{
+    orders: ProductionOrderView[];
+    page: number;
+  }> {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string → undefined
     const productionOrderCode = params.productionOrderCode?.trim() || undefined;
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string → undefined
     const keyword = params.keyword?.trim() || undefined;
     const tabFilter = tabToSearchFilter(params.tab);
+    const page = params.page ?? 1;
+    const size = params.size ?? PRODUCTION_ORDER_LIST_PAGE_SIZE;
 
     const searchInput: ProductionOrderSupplierSearchInput = {
       ...(productionOrderCode ? { productionOrderCode } : keyword ? { keyword } : {}),
       ...tabFilter,
+      sortNode: buildLastDeliveryDateSortNode(params.sort),
     };
 
-    const searchResult = await searchProductionOrders(searchInput);
-    const orders = mapSearchRecordsToSortedOrders(searchResult.records, params.sort);
-    return enrichOrdersWithFrontImages(orders);
+    const searchResult = await searchProductionOrders(searchInput, page, size);
+    const orders = await enrichOrdersWithFrontImages(
+      mapSearchRecordsToOrders(searchResult.records),
+    );
+    return {
+      orders,
+      // 用本次请求的页码做游标，避免接口把 page 固定成 1 导致无法翻页
+      page,
+    };
   },
 
   /**
@@ -208,7 +226,7 @@ export const productionOrderService = {
     // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- empty string → undefined
     const productionOrderCode = params.productionOrderCode?.trim() || undefined;
 
-    const [orders, statistic] = await Promise.all([
+    const [list, statistic] = await Promise.all([
       this.fetchOrderList(params),
       this.getStatistic({
         ...(productionOrderCode ? { productionOrderCode } : {}),
@@ -220,7 +238,7 @@ export const productionOrderService = {
     return {
       supplierName: '',
       totalOrderCount,
-      orders,
+      orders: list.orders,
       tabStats,
     };
   },

@@ -17,6 +17,7 @@ import {
   type ProductionOrderVO,
 } from '@/types/productionOrder';
 import type {
+  ProductionOrderSortNode,
   ProductionOrderSupplierCount,
   ProductionOrderSupplierSearchInput,
   ProductionOrderSupplierSearchRecord,
@@ -72,6 +73,13 @@ export const tabToSearchFilter = (
   if (tab === 'overdue') return { isOverTime: true };
   return {};
 };
+
+/** 对齐 erp-web `getSortParams`，最后交期排序写入 sortNode */
+export const buildLastDeliveryDateSortNode = (
+  order: DeliverySortOrder,
+): ProductionOrderSortNode => ({
+  sort: [{ 'multiColorProductCoreData.factoryPlanedProductionDate': { order } }],
+});
 
 /** 搜索选中回填：超期优先进超期 Tab，否则按整单状态 */
 export const resolveTabForOrder = (
@@ -330,23 +338,11 @@ export const mapSearchRecordToOrderView = (
   };
 };
 
-export const sortOrdersByLastDeliveryDate = (
-  orders: readonly ProductionOrderView[],
-  sort: DeliverySortOrder,
-): ProductionOrderView[] => {
-  const sign = sort === 'asc' ? 1 : -1;
-  return [...orders].sort((a, b) => sign * a.lastDeliveryDate.localeCompare(b.lastDeliveryDate));
-};
-
-export const mapSearchRecordsToSortedOrders = (
+export const mapSearchRecordsToOrders = (
   records: ProductionOrderSupplierSearchRecord[],
-  sort: DeliverySortOrder,
 ): ProductionOrderView[] => {
   const today = todayString();
-  return sortOrdersByLastDeliveryDate(
-    records.map((record) => mapSearchRecordToOrderView(record, today)),
-    sort,
-  );
+  return records.map((record) => mapSearchRecordToOrderView(record, today));
 };
 
 export const buildTabStatsFromStatistic = (

@@ -18,19 +18,19 @@ export const GET_USER_INFO_QUERY = gql`
       avatar
       products {
         name
+        roles {
+          id
+          name
+          privileges {
+            id
+            name
+            displayName
+          }
+        }
       }
     }
   }
 `;
-// roles {
-//   id
-//   name
-//   privileges {
-//     id
-//     name
-//     displayName
-//   }
-// }
 
 export const GET_QRCODE_STATUS_QUERY = gql`
   query GetQrcodeStatus($deviceId: String!) {
