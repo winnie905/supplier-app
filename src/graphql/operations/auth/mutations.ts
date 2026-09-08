@@ -4,7 +4,7 @@ import { gql } from '@apollo/client';
  * 发送邮箱验证码
  */
 export const SEND_EMAIL_CODE_MUTATION = gql`
-  mutation SendOtp($input: SendOtpDto!) {
+  mutation SendOtp($input: UserServiceAuthControllerSendOtpRequestInput!) {
     sendOtp(input: $input)
   }
 `;
@@ -27,7 +27,7 @@ export const GET_ACCESS_TOKEN_MUTATION = gql`
  * 邮箱验证码登录
  */
 export const LOGIN_WITH_OTP_MUTATION = gql`
-  mutation LoginWithOtp($input: LoginWithOtpInput!) {
+  mutation LoginWithOtp($input: UserServiceAuthControllerLoginWithOtpRequestInput!) {
     loginWithOtp(input: $input) {
       token
       expiredAt
