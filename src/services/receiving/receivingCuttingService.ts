@@ -25,19 +25,26 @@ export const receivingCuttingService = {
   /** 读取裁床记录：优先用生产单详情内嵌 Preview，未提交草稿由页面内存维护 */
   async getCuttingRecords(productionColorId: string): Promise<CuttingRecordsData> {
     const supplierDetail = await requireSupplierDetail(productionColorId);
+    const quantity = supplierDetail.customerPurchaseOrder?.quantity ?? 0;
+    const sizes = uniqueSizeNames(
+      supplierDetail.customerPurchaseOrder?.sizeRange?.map((item) => item.name) ?? [],
+    );
 
     const existing = resolveWorkshopOrder(supplierDetail, 'cropOrder');
     if (existing) {
-      return mapCropOrderToCuttingRecords(existing, productionColorId);
+      const fromApi = mapCropOrderToCuttingRecords(existing, productionColorId);
+      return {
+        ...fromApi,
+        quantity,
+        sizes: sizes.length > 0 ? sizes : fromApi.sizes,
+      };
     }
 
     return {
       productionColorId,
       beds: [],
-      quantity: supplierDetail.customerPurchaseOrder?.quantity ?? 0,
-      sizes: uniqueSizeNames(
-        supplierDetail.customerPurchaseOrder?.sizeRange?.map((item) => item.name) ?? [],
-      ),
+      quantity,
+      sizes,
     };
   },
 
