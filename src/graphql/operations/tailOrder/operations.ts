@@ -4,6 +4,7 @@ import {
   BOX_SPECIFICATION_FIELDS,
   BOX_SPECIFICATION_WITH_BRAND_FIELDS,
   CROP_PROCESS_FIELDS,
+  CROP_PROCESS_WITH_MAINTAINER_FIELDS,
   USER_SUMMARY_FIELDS,
 } from '@/graphql/operations/shared/workshopOrderFields';
 
@@ -30,7 +31,7 @@ export const TAIL_ORDER = gql`
       cropOrderStorage {
         cropTotal
         cropProcesses {
-          ${CROP_PROCESS_FIELDS}
+          ${CROP_PROCESS_WITH_MAINTAINER_FIELDS}
           boxSpecification {
             ${BOX_SPECIFICATION_WITH_BRAND_FIELDS}
           }
@@ -39,7 +40,7 @@ export const TAIL_ORDER = gql`
       tailOrderStorage {
         cropTotal
         cropProcesses {
-          ${CROP_PROCESS_FIELDS}
+          ${CROP_PROCESS_WITH_MAINTAINER_FIELDS}
           boxSpecification {
             ${BOX_SPECIFICATION_WITH_BRAND_FIELDS}
           }

@@ -1,6 +1,7 @@
 import { buildSewOrderPayload, mapSewOrderToSewingRecords } from '@/services/apps/mapSewOrder';
 import { sewOrderService } from '@/services/apps/sewOrderService';
 import {
+  currentExceptionReporter,
   fetchFreshSupplierDetail,
   sumQuantities,
   todayString,
@@ -81,6 +82,11 @@ export const receivingSewingService = {
       existing,
       records: nextRecords,
       productionOrder: toWorkshopProductionRef(freshDetail),
+      audit: {
+        targetIds,
+        maintainer: currentExceptionReporter(),
+        maintenanceDate: now,
+      },
     });
 
     await persistWorkshopOrder({

@@ -278,6 +278,8 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
                 <VStack gap={4}>
                   <Text style={styles.fieldLabel}>扎数</Text>
                   <QuantityStepper
+                    allowDecimal
+                    decimalPlaces={1}
                     editable
                     onChange={(bundleCount) => updateBed(bed.id, { bundleCount })}
                     onInputFocus={onInputFocus}

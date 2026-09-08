@@ -1,10 +1,13 @@
 import {
+  type CropProcessSubmitAudit,
+  findCropProcessById,
   isLocalRecordId,
   planSizeNames,
   sumCropQuantity,
   sumProcessQuantity,
   toCropSizeRange,
   toSizeQuantities,
+  withCropProcessAudit,
 } from '@/services/apps/mapWorkshopSizes';
 import type { CropProcess, SewOrder, WorkshopProductionOrderRef } from '@/types/cropOrder';
 import type { SewingDayRecord, SewingRecordsData } from '@/types/receiving';
@@ -123,11 +126,23 @@ export const buildSewOrderPayload = (params: {
   existing: SewOrder | null;
   records: SewingDayRecord[];
   productionOrder?: WorkshopProductionOrderRef;
+  audit: CropProcessSubmitAudit;
 }): SewOrder => {
   const submitted = [...params.records]
     .filter((record) => record.submitted)
     .sort((a, b) => a.date.localeCompare(b.date));
-  const cropProcesses = submitted.flatMap(mapSewingDayToCropProcesses);
+  const existingProcesses = params.existing?.cropOrderStorage?.cropProcesses;
+  const cropProcesses = submitted.flatMap((record) => {
+    const stamp = params.audit.targetIds.includes(record.id);
+    return mapSewingDayToCropProcesses(record).map((process) => {
+      const existingProcess = findCropProcessById(existingProcesses, process.id);
+      return withCropProcessAudit(process, {
+        stamp,
+        audit: params.audit,
+        ...(existingProcess ? { existing: existingProcess } : {}),
+      });
+    });
+  });
   const cropTotal = sumProcessQuantity(cropProcesses);
   const productionOrder = params.productionOrder ?? params.existing?.productionOrder;
   const sewOrderId = params.existing?.id;

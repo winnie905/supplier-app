@@ -208,6 +208,11 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
     setPendingCartonId(undefined);
   };
 
+  const hasRemovedSubmittedBoxes = useMemo(() => {
+    const localIds = new Set(boxes.map((box) => box.id));
+    return (data?.boxes ?? []).some((box) => !localIds.has(box.id));
+  }, [boxes, data?.boxes]);
+
   const handleSubmit = useRecordsSubmit({
     records: boxes,
     editingId,
@@ -216,8 +221,16 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
     resetSyncGuards,
     refresh,
     runSubmit,
-    submit: (targetIds) =>
-      receivingService.submitPackingRecords(productionColorId, boxes, targetIds),
+    allowSubmitWithoutTargets: hasRemovedSubmittedBoxes,
+    submit: (targetIds) => {
+      const ids = hasRemovedSubmittedBoxes
+        ? targetIds.filter((id) => {
+            const box = boxes.find((item) => item.id === id);
+            return Boolean(box?.cartonSpecId) && sumQuantities(box?.sizeQuantities ?? []) > 0;
+          })
+        : targetIds;
+      return receivingService.submitPackingRecords(productionColorId, boxes, ids);
+    },
     errorMessages: {
       NO_CARTON: '箱子未添加尺寸！',
     },

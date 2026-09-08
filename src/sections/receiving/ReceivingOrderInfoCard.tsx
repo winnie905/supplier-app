@@ -7,6 +7,7 @@ import ChevronRightIcon from '@/assets/icons/chevronRight.svg';
 import WarningTriangleIcon from '@/assets/icons/warningTriangle.svg';
 import { BrandBadge } from '@/components/BrandBadge';
 import { OrderInfoThumbnail } from '@/components/OrderInfoThumbnail';
+import { useProductCategories } from '@/hooks/apps/useProductCategories';
 import { ReceivingImagePreview } from '@/sections/receiving/ReceivingImagePreview';
 import type { ProductionColorDetail } from '@/types/receiving';
 
@@ -82,6 +83,7 @@ export const ReceivingOrderInfoCard = ({
   thumbnailHeight = 80,
   thumbnailFit = 'contain',
 }: ReceivingOrderInfoCardProps) => {
+  const { getCategoryLabel } = useProductCategories();
   const [expanded, setExpanded] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -135,7 +137,7 @@ export const ReceivingOrderInfoCard = ({
 
           <View style={styles.summaryCol}>
             <BrandBadge name={detail.brand} />
-            <InlineField label="款式类别" value={detail.category} />
+            <InlineField label="款式类别" value={getCategoryLabel(detail.category)} />
             <InlineField label="大货款号" value={detail.productCode} />
             <InlineField label="客户PO" value={detail.customerPO} />
             <InlineField label="要求出货日期" value={detail.requiredProductionDate} />

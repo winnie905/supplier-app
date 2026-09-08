@@ -17,6 +17,10 @@ interface UseRecordsSubmitParams<T extends { id: string; submitted: boolean }> {
   emptyMessage?: string;
   /** service 抛出的业务错误码 → 提示文案；EMPTY_FORM 已有默认文案 */
   errorMessages?: Record<string, string>;
+  /**
+   * 无新增/编辑中的记录时仍允许提交（如尾部删除已提交箱子后，需把剩余箱子写回后端）。
+   */
+  allowSubmitWithoutTargets?: boolean;
 }
 
 /**
@@ -34,6 +38,7 @@ export const useRecordsSubmit = <T extends { id: string; submitted: boolean }>({
   runSubmit,
   emptyMessage = EMPTY_FORM_SUBMIT_MESSAGE,
   errorMessages,
+  allowSubmitWithoutTargets = false,
 }: UseRecordsSubmitParams<T>) => {
   const toast = useToast();
   const resolvedErrorMessages: Record<string, string> = {
@@ -44,7 +49,7 @@ export const useRecordsSubmit = <T extends { id: string; submitted: boolean }>({
   return () => {
     void runSubmit(async () => {
       const targets = records.filter((record) => !record.submitted || record.id === editingId);
-      if (targets.length === 0) {
+      if (targets.length === 0 && !allowSubmitWithoutTargets) {
         toast.show({ title: emptyMessage, duration: 3000 });
         return;
       }

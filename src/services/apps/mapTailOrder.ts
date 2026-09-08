@@ -1,10 +1,13 @@
 import {
+  type CropProcessSubmitAudit,
+  findCropProcessById,
   isLocalRecordId,
   planSizeNames,
   sumCropQuantity,
   sumProcessQuantity,
   toCropSizeRange,
   toSizeQuantities,
+  withCropProcessAudit,
 } from '@/services/apps/mapWorkshopSizes';
 import type {
   CropProcess,
@@ -122,11 +125,23 @@ export const buildTailOrderPayload = (params: {
   existing: TailOrder | null;
   boxes: PackingBoxRecord[];
   productionOrder?: WorkshopProductionOrderRef;
+  audit: CropProcessSubmitAudit;
 }): TailOrder => {
   const submitted = [...params.boxes]
     .filter((box) => box.submitted)
     .sort((a, b) => a.boxNo - b.boxNo);
-  const processes = submitted.map(mapPackingBoxToCropProcess);
+  const existingProcesses = params.existing ? getTailProcesses(params.existing) : [];
+  const processes = submitted.map((box) => {
+    const existingProcess = findCropProcessById(
+      existingProcesses,
+      isLocalRecordId(box.id) ? undefined : box.id,
+    );
+    return withCropProcessAudit(mapPackingBoxToCropProcess(box), {
+      stamp: params.audit.targetIds.includes(box.id),
+      audit: params.audit,
+      ...(existingProcess ? { existing: existingProcess } : {}),
+    });
+  });
   const cropTotal = sumProcessQuantity(processes);
   const productionOrder = params.productionOrder ?? params.existing?.productionOrder;
   const tailOrderId = params.existing?.id;

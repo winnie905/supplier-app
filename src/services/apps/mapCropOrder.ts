@@ -1,10 +1,13 @@
 import {
+  type CropProcessSubmitAudit,
+  findCropProcessById,
   isLocalRecordId,
   planSizeNames,
   sumCropQuantity,
   sumProcessQuantity,
   toCropSizeRange,
   toSizeQuantities,
+  withCropProcessAudit,
 } from '@/services/apps/mapWorkshopSizes';
 import type { CropOrder, CropProcess, WorkshopProductionOrderRef } from '@/types/cropOrder';
 import type { CuttingBedRecord, CuttingRecordsData } from '@/types/receiving';
@@ -68,11 +71,23 @@ export const buildCropOrderPayload = (params: {
   existing: CropOrder | null;
   beds: CuttingBedRecord[];
   productionOrder?: WorkshopProductionOrderRef;
+  audit: CropProcessSubmitAudit;
 }): CropOrder => {
   const submitted = [...params.beds]
     .filter((bed) => bed.submitted)
     .sort((a, b) => a.bedNo - b.bedNo);
-  const cropProcesses = submitted.map(mapCuttingBedToCropProcess);
+  const existingProcesses = params.existing?.cropOrderStorage?.cropProcesses;
+  const cropProcesses = submitted.map((bed) => {
+    const existingProcess = findCropProcessById(
+      existingProcesses,
+      isLocalRecordId(bed.id) ? undefined : bed.id,
+    );
+    return withCropProcessAudit(mapCuttingBedToCropProcess(bed), {
+      stamp: params.audit.targetIds.includes(bed.id),
+      audit: params.audit,
+      ...(existingProcess ? { existing: existingProcess } : {}),
+    });
+  });
   const cropTotal = sumProcessQuantity(cropProcesses);
   // 优先用本次从生产单详情组装的入参（含 schema 必填占位）；已有裁床单回传作兜底
   const productionOrder = params.productionOrder ?? params.existing?.productionOrder;

@@ -10,6 +10,8 @@ interface QuantityStepperProps {
   value: number;
   onChange: (next: number) => void;
   allowDecimal?: boolean;
+  /** 小数位数上限；仅 allowDecimal 时生效，默认 2。 */
+  decimalPlaces?: number;
   /** Whether to show ±stepLarge buttons. Defaults to true. */
   showStepLarge?: boolean;
   stepLarge?: number;
@@ -21,25 +23,23 @@ interface QuantityStepperProps {
 const STEP_ICON_COLOR = '#000000';
 const STEP_DISABLED_COLOR = '#BAC0CA';
 const ICON_COLOR = '#021626';
+const DEFAULT_DECIMAL_PLACES = 2;
 
-/** 小数位数上限（如箱重保留两位） */
-const DECIMAL_PLACES = 2;
-const DECIMAL_FACTOR = 10 ** DECIMAL_PLACES;
-
-const clampNumber = (value: number, allowDecimal: boolean) => {
+const clampNumber = (value: number, allowDecimal: boolean, decimalPlaces: number) => {
   const safe = Number.isFinite(value) ? value : 0;
   if (allowDecimal) {
-    return Math.max(0, Math.round(safe * DECIMAL_FACTOR) / DECIMAL_FACTOR);
+    const factor = 10 ** decimalPlaces;
+    return Math.max(0, Math.round(safe * factor) / factor);
   }
   return Math.max(0, Math.floor(safe));
 };
 
-const sanitizeNumericText = (text: string, allowDecimal: boolean) => {
+const sanitizeNumericText = (text: string, allowDecimal: boolean, decimalPlaces: number) => {
   if (allowDecimal) {
     const cleaned = text.replace(/[^\d.]/g, '');
     const [head = '', ...rest] = cleaned.split('.');
     if (rest.length === 0) return head;
-    return `${head}.${rest.join('').slice(0, DECIMAL_PLACES)}`;
+    return `${head}.${rest.join('').slice(0, decimalPlaces)}`;
   }
   return text.replace(/\D/g, '');
 };
@@ -48,6 +48,7 @@ export const QuantityStepper = ({
   value,
   onChange,
   allowDecimal = false,
+  decimalPlaces = DEFAULT_DECIMAL_PLACES,
   showStepLarge = true,
   stepLarge = 10,
   editable = true,
@@ -60,7 +61,7 @@ export const QuantityStepper = ({
   const setValue = (next: number) => {
     if (!editable) return;
     setDraft(null);
-    onChange(clampNumber(next, allowDecimal));
+    onChange(clampNumber(next, allowDecimal, decimalPlaces));
   };
 
   // 无数值 / 0：减号禁用；大于 0 开启减号；大于 stepLarge-1（默认 9）开启 -stepLarge
@@ -107,14 +108,14 @@ export const QuantityStepper = ({
           keyboardType={allowDecimal ? 'decimal-pad' : 'number-pad'}
           onChangeText={(text) => {
             if (!editable) return;
-            const cleaned = sanitizeNumericText(text, allowDecimal);
+            const cleaned = sanitizeNumericText(text, allowDecimal, decimalPlaces);
             setDraft(cleaned);
             if (cleaned === '' || cleaned === '.') {
               onChange(0);
               return;
             }
             const parsed = allowDecimal ? parseFloat(cleaned) : parseInt(cleaned, 10);
-            onChange(clampNumber(Number.isNaN(parsed) ? 0 : parsed, allowDecimal));
+            onChange(clampNumber(Number.isNaN(parsed) ? 0 : parsed, allowDecimal, decimalPlaces));
           }}
           onBlur={() => setDraft(null)}
           onFocus={onInputFocus}

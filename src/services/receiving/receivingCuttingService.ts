@@ -69,6 +69,11 @@ export const receivingCuttingService = {
       existing,
       beds: nextBeds,
       productionOrder: toWorkshopProductionRef(freshDetail),
+      audit: {
+        targetIds,
+        maintainer: currentExceptionReporter(),
+        maintenanceDate: now,
+      },
     });
 
     await persistWorkshopOrder({

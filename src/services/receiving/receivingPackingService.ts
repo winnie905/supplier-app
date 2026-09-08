@@ -2,6 +2,7 @@ import { boxSpecificationService } from '@/services/apps/boxSpecificationService
 import { buildTailOrderPayload, mapTailOrderToPackingRecords } from '@/services/apps/mapTailOrder';
 import { tailOrderService } from '@/services/apps/tailOrderService';
 import {
+  currentExceptionReporter,
   fetchFreshSupplierDetail,
   resolveSupplierDetail,
   sumQuantities,
@@ -65,6 +66,7 @@ export const receivingPackingService = {
   /**
    * 提交装箱记录：无尾部单 → create；有 → update。
    * 入参为页面当前全部箱子（含待提交），方法内校验并标记目标箱子后写后端。
+   * targetIds 为空时仍写回当前已提交箱子（用于删除已提交箱子后的同步）。
    */
   async submitPackingRecords(
     productionColorId: string,
@@ -91,6 +93,11 @@ export const receivingPackingService = {
       existing,
       boxes: enrichedBoxes,
       productionOrder: toWorkshopProductionRef(freshDetail),
+      audit: {
+        targetIds,
+        maintainer: currentExceptionReporter(),
+        maintenanceDate: now,
+      },
     });
 
     await persistWorkshopOrder({
