@@ -8,12 +8,14 @@ import { BrandBadge } from '@/components/BrandBadge';
 import { OrderInfoThumbnail } from '@/components/OrderInfoThumbnail';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { formatUserName } from '@/services/receiving/mapReceivingHelpers';
+import { useCareModeStore } from '@/store/careModeStore';
 import type {
   ProductionColorProgressStatus,
   ProductionOrderAggregateStatus,
   ProductionOrderView,
 } from '@/types/apps';
 import { mapProductionStatusToProgress } from '@/types/apps';
+import { formatProductionType } from '@/utils/apps/productionType';
 import { toDateOnly } from '@/utils/date';
 import { formatCount } from '@/utils/number';
 
@@ -94,6 +96,7 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
   onColorPress,
 }: ProductionOrderCardProps) {
   const { colors } = useAppTheme();
+  const careModeEnabled = useCareModeStore((state) => state.enabled);
   const showOverdue = showOverdueBadge && order.overdue;
   const badgeColor = showOverdue ? OVERDUE_BADGE_COLOR : ORDER_STATUS_BADGE[order.status];
   const badgeLabel = showOverdue ? '超期' : ORDER_STATUS_LABEL[order.status];
@@ -105,9 +108,15 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.statusBadge}>
-        <OrderStatusIcon width={67} height={20} color={badgeColor} />
-        <Text style={styles.statusBadgeText}>{badgeLabel}</Text>
+      <View style={[styles.statusBadge, careModeEnabled ? styles.statusBadgeCare : null]}>
+        <OrderStatusIcon
+          width={careModeEnabled ? 82 : 67}
+          height={careModeEnabled ? 24 : 20}
+          color={badgeColor}
+        />
+        <Text style={[styles.statusBadgeText, careModeEnabled ? styles.statusBadgeTextCare : null]}>
+          {badgeLabel}
+        </Text>
       </View>
 
       <View style={styles.header}>
@@ -178,7 +187,7 @@ export const ProductionOrderCard = memo(function ProductionOrderCard({
                   <FieldRow
                     align="right"
                     label="加工方式"
-                    value={representative.productionType}
+                    value={formatProductionType(representative.productionType)}
                     variant="detail"
                   />
                 </View>
@@ -261,13 +270,24 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     ...StyleSheet.absoluteFillObject,
     fontSize: 12,
-    lineHeight: 12,
+    lineHeight: 14,
     fontWeight: '500',
     color: designTokens.colors.gray[0],
     includeFontPadding: false,
+    paddingTop: 3,
+    paddingBottom: 3,
+    paddingLeft: 21,
+    paddingRight: 10,
+  },
+  statusBadgeCare: {
+    width: 82,
+    height: 24,
+  },
+  statusBadgeTextCare: {
+    lineHeight: 16,
     paddingTop: 4,
     paddingBottom: 4,
-    paddingLeft: 21,
+    paddingLeft: 26,
     paddingRight: 10,
   },
   header: {

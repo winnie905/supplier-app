@@ -107,6 +107,10 @@ export const mapSearchRecordToOrderView = (
       return date > max ? date : max;
     }, '');
 
+  const template = record.template?.frontImages?.length
+    ? { frontImages: record.template.frontImages }
+    : {};
+
   const items: ProductionOrderVO[] = colors.map((colorItem, index) => {
     const follower = emptyUser(record.productionFollower);
     const color = colorItem.color ?? '-';
@@ -209,7 +213,7 @@ export const mapSearchRecordToOrderView = (
       },
       shipInformation: '',
       cropOrder: {},
-      template: {},
+      template,
       user: follower,
       lastUpdater: follower,
       bomItems: [],
@@ -310,7 +314,7 @@ export const mapSearchRecordToOrderView = (
       },
       shipInformation: '',
       cropOrder: {},
-      template: {},
+      template,
       user: follower,
       lastUpdater: follower,
       bomItems: [],

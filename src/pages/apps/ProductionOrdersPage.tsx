@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import BackIcon from '@/assets/icons/back.svg';
-import { emptyPageImage, managementEmptyImage } from '@/components/images';
+import { emptyPageImage } from '@/components/images';
 import { PullToRefreshContainer, WorkbenchRefreshIndicator } from '@/components/pullToRefresh';
 import { SearchEntryBar } from '@/components/SearchEntryBar';
 import { ROUTES } from '@/constants/routes';
@@ -104,7 +104,7 @@ const OrderTabPanel = memo(function OrderTabPanel({
         </View>
       ) : (
         <View style={styles.listEmpty}>
-          <Image resizeMode="contain" source={managementEmptyImage} style={styles.emptyImage} />
+          <Image resizeMode="contain" source={emptyPageImage} style={styles.emptyImage} />
           <Text style={styles.emptyText}>暂无数据</Text>
         </View>
       ),

@@ -4,6 +4,7 @@
  */
 
 import type { CropOrder } from '@/types/cropOrder';
+import type { ProductImage } from '@/types/productionOrder';
 
 /** 生产单状态：对齐 ErpProductionOrderSupplierSearchStatus */
 export type SupplierProductionOrderStatus =
@@ -107,6 +108,9 @@ export interface ProductionOrderSupplierSearchRecord {
   templateDesign?: {
     category?: string;
     customerCode?: string;
+  };
+  template?: {
+    frontImages?: ProductImage[];
   };
 }
 

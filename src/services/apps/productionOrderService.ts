@@ -4,7 +4,6 @@ import { apolloClient } from '@/graphql/client';
 import {
   CONFIRM_ARRIVE_MATERIAL,
   CREATE_PRODUCTION_ORDER_EXCEPTION_RECORD,
-  PRODUCTION_ORDER_FRONT_IMAGES,
   PRODUCTION_ORDER_SUPPLIER_DETAIL,
   PRODUCTION_ORDER_SUPPLIER_SEARCH,
   PRODUCTION_ORDER_SUPPLIER_STATISTIC,
@@ -23,7 +22,7 @@ import type {
   ProductionOrderTab,
   ProductionOrderView,
 } from '@/types/apps';
-import type { ProductImage, ProductionOrderVO } from '@/types/productionOrder';
+import type { ProductionOrderVO } from '@/types/productionOrder';
 import type {
   ConfirmArriveMaterialInput,
   CreateExceptionRecordInput,
@@ -37,8 +36,6 @@ import type {
 const DEFAULT_PAGE_SIZE = 50;
 /** 订单查询列表默认分页 */
 export const PRODUCTION_ORDER_LIST_PAGE_SIZE = 20;
-/** 搜索预览无 template.frontImages，列表缩略图按色补拉时的并发上限 */
-const FRONT_IMAGE_ENRICH_CONCURRENCY = 6;
 
 const EMPTY_SEARCH_RESULT: ProductionOrderSupplierSearchResult = {
   total: 0,
@@ -75,64 +72,6 @@ const searchProductionOrders = async (
   }>(PRODUCTION_ORDER_SUPPLIER_SEARCH, { input, page, size });
 
   return data.productionOrderSupplierSearch ?? EMPTY_SEARCH_RESULT;
-};
-
-const fetchFrontImages = async (
-  productionOrderCode: string,
-  color: string,
-): Promise<ProductImage[]> => {
-  try {
-    const data = await query<{
-      productionOrderSupplierDetail: {
-        template?: { frontImages?: ProductImage[] };
-      } | null;
-    }>(PRODUCTION_ORDER_FRONT_IMAGES, { productionOrderCode, color });
-    return data.productionOrderSupplierDetail?.template?.frontImages ?? [];
-  } catch {
-    return [];
-  }
-};
-
-/** 搜索 DTO 无 frontImages，按代表色补拉正面图供列表缩略图使用 */
-const enrichOrdersWithFrontImages = async (
-  orders: ProductionOrderView[],
-): Promise<ProductionOrderView[]> => {
-  if (orders.length === 0) return orders;
-
-  const enriched = orders.slice();
-  let cursor = 0;
-
-  const workers = Array.from(
-    { length: Math.min(FRONT_IMAGE_ENRICH_CONCURRENCY, enriched.length) },
-    async () => {
-      while (cursor < enriched.length) {
-        const index = cursor;
-        cursor += 1;
-        const order = enriched[index];
-        if (!order) continue;
-
-        const color = order.items.find((item) => item.color && item.color !== '-')?.color;
-        if (!color) continue;
-
-        const frontImages = await fetchFrontImages(order.productionOrderCode, color);
-        if (!frontImages.length) continue;
-
-        enriched[index] = {
-          ...order,
-          representative: {
-            ...order.representative,
-            template: {
-              ...order.representative.template,
-              frontImages,
-            },
-          },
-        };
-      }
-    },
-  );
-
-  await Promise.all(workers);
-  return enriched;
 };
 
 /** 供应商生产单服务，直连 apex-bff GraphQL。 */
@@ -203,11 +142,8 @@ export const productionOrderService = {
     };
 
     const searchResult = await searchProductionOrders(searchInput, page, size);
-    const orders = await enrichOrdersWithFrontImages(
-      mapSearchRecordsToOrders(searchResult.records),
-    );
     return {
-      orders,
+      orders: mapSearchRecordsToOrders(searchResult.records),
       // 用本次请求的页码做游标，避免接口把 page 固定成 1 导致无法翻页
       page,
     };

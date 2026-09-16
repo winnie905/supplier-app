@@ -107,22 +107,11 @@ export const PRODUCTION_ORDER_SUPPLIER_SEARCH = gql`
           category
           customerCode
         }
-      }
-    }
-  }
-`;
-
-/** 列表缩略图：搜索预览无 template，按色补拉正面图 */
-export const PRODUCTION_ORDER_FRONT_IMAGES = gql`
-  query ProductionOrderFrontImages($productionOrderCode: String!, $color: String!) {
-    productionOrderSupplierDetail: getProductionOrder(
-      productionOrderCode: $productionOrderCode
-      color: $color
-    ) {
-      template {
-        frontImages {
-          url
-          description
+        template {
+          frontImages {
+            url
+            description
+          }
         }
       }
     }

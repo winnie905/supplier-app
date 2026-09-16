@@ -10,6 +10,7 @@ import { OrderInfoThumbnail } from '@/components/OrderInfoThumbnail';
 import { useProductCategories } from '@/hooks/apps/useProductCategories';
 import { ReceivingImagePreview } from '@/sections/receiving/ReceivingImagePreview';
 import type { ProductionColorDetail } from '@/types/receiving';
+import { formatProductionType } from '@/utils/apps/productionType';
 
 interface ReceivingOrderInfoCardProps {
   detail: ProductionColorDetail;
@@ -164,7 +165,7 @@ export const ReceivingOrderInfoCard = ({
                 <InlineField
                   muted
                   label="加工方式"
-                  value={detail.productionType}
+                  value={formatProductionType(detail.productionType)}
                   style={styles.rightAlign}
                 />
               </View>
