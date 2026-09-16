@@ -16,7 +16,7 @@
     "clean:metro": "rm -rf \"${TMPDIR:-/tmp}\"/metro-* \"${TMPDIR:-/tmp}\"/haste-map-* node_modules/.cache",
     "clean:android": "./android/gradlew -p android clean",
     "apk:dev": "npm run clean:metro && npm run clean:android && dotenv -e .env.dev -e .env.local -- ./android/gradlew -p android assembleRelease",
-    "apk:uat": "dotenv -e .env.uat -e .env.local -- ./android/gradlew -p android assembleRelease",
+    "apk:uat": "npm run clean:metro && npm run clean:android && dotenv -e .env.uat -e .env.local -- ./android/gradlew -p android assembleRelease",
     "apk:prod": "npm run clean:metro && npm run clean:android && dotenv -e .env.production -e .env.local -- ./android/gradlew -p android assembleRelease",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",

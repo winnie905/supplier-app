@@ -32,6 +32,7 @@ import {
   sizeNamesFromRange,
   sumQuantities,
 } from '@/services/receiving/receivingService';
+import { isBlankSizeQuantities } from '@/services/receiving/sizeQuantity';
 import type { CartonSpec, PackingBoxRecord } from '@/types/receiving';
 
 type PackingRecordsPageProps = LogisticsScreenProps<'PackingRecords'>;
@@ -93,7 +94,7 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
           id: `local-${Date.now()}`,
           boxNo: 1,
           weightKg: 0,
-          sizeQuantities: emptySizeQuantities(sizes),
+          sizeQuantities: emptySizeQuantities(sizes, null),
           submitted: false,
         },
       ];
@@ -151,7 +152,7 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
       id: `local-${Date.now()}`,
       boxNo: nextNo,
       weightKg: 0,
-      sizeQuantities: emptySizeQuantities(sizes),
+      sizeQuantities: emptySizeQuantities(sizes, null),
       submitted: false,
     };
     const next = [box, ...boxes];
@@ -226,7 +227,7 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
       const ids = hasRemovedSubmittedBoxes
         ? targetIds.filter((id) => {
             const box = boxes.find((item) => item.id === id);
-            return Boolean(box?.cartonSpecId) && sumQuantities(box?.sizeQuantities ?? []) > 0;
+            return Boolean(box?.cartonSpecId) && !isBlankSizeQuantities(box?.sizeQuantities ?? []);
           })
         : targetIds;
       return receivingService.submitPackingRecords(productionColorId, boxes, ids);
@@ -369,7 +370,7 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
                   <QuantityStepper
                     allowDecimal
                     editable
-                    onChange={(weightKg) => updateBox(box.id, { weightKg })}
+                    onChange={(weightKg) => updateBox(box.id, { weightKg: weightKg ?? 0 })}
                     onInputFocus={onInputFocus}
                     showStepLarge={false}
                     value={box.weightKg}
@@ -377,6 +378,7 @@ export const PackingRecordsPage = ({ navigation, route }: PackingRecordsPageProp
                 </VStack>
                 <ReceivingQuantityGrid
                   editable
+                  keepZero
                   onChange={(sizeQuantities) => updateBox(box.id, { sizeQuantities })}
                   onInputFocus={onInputFocus}
                   sizes={sizes}

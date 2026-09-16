@@ -14,7 +14,7 @@ export const toSizeQuantities = (process: CropProcess): SizeQuantity[] =>
 export const toCropSizeRange = (values: SizeQuantity[]): CropProcessSizeRange[] =>
   values.map((item) => ({
     name: item.size,
-    cropQuantity: item.quantity,
+    cropQuantity: item.quantity ?? 0,
   }));
 
 export const sumCropQuantity = (sizeRange: CropProcessSizeRange[]): number =>

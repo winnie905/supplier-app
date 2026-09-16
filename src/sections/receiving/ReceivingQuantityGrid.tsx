@@ -13,6 +13,7 @@ interface ReceivingQuantityGridProps {
   showStepLarge?: boolean;
   stepLarge?: number;
   editable?: boolean;
+  keepZero?: boolean;
   onInputFocus?: (event: FocusEvent) => void;
 }
 
@@ -24,11 +25,16 @@ export const ReceivingQuantityGrid = ({
   showStepLarge = true,
   stepLarge = 10,
   editable = true,
+  keepZero = false,
   onInputFocus,
 }: ReceivingQuantityGridProps) => {
-  const getValue = (size: string) => values.find((item) => item.size === size)?.quantity ?? 0;
+  const getValue = (size: string): number | null => {
+    const found = values.find((item) => item.size === size);
+    if (!found) return keepZero ? null : 0;
+    return found.quantity;
+  };
 
-  const updateValue = (size: string, next: number) => {
+  const updateValue = (size: string, next: number | null) => {
     const exists = values.some((item) => item.size === size);
     if (exists) {
       onChange(values.map((item) => (item.size === size ? { ...item, quantity: next } : item)));
@@ -45,6 +51,7 @@ export const ReceivingQuantityGrid = ({
           <QuantityStepper
             allowDecimal={allowDecimal}
             editable={editable}
+            keepZero={keepZero}
             onChange={(next) => updateValue(size, next)}
             {...(onInputFocus ? { onInputFocus } : {})}
             showStepLarge={showStepLarge}

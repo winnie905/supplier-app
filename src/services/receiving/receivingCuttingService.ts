@@ -10,16 +10,29 @@ import {
   currentExceptionReporter,
   fetchFreshSupplierDetail,
   resolveProductionId,
-  sumQuantities,
   toWorkshopProductionRef,
 } from '@/services/receiving/receivingServiceShared';
-import { uniqueSizeNames } from '@/services/receiving/sizeQuantity';
+import {
+  fillUnfilledSizeQuantities,
+  isBlankSizeQuantities,
+  uniqueSizeNames,
+} from '@/services/receiving/sizeQuantity';
 import {
   persistWorkshopOrder,
   requireSupplierDetail,
   resolveWorkshopOrder,
 } from '@/services/receiving/workshopOrderWrite';
 import type { CuttingBedRecord, CuttingRecordsData, FactoryException } from '@/types/receiving';
+
+/** 扎数与全部尺码都未填写（空着，不是用户输入的 0） */
+const isBlankCuttingBed = (bed: CuttingBedRecord) =>
+  bed.bundleCount == null && isBlankSizeQuantities(bed.sizeQuantities);
+
+const fillUnfilledCuttingQuantities = (bed: CuttingBedRecord): CuttingBedRecord => ({
+  ...bed,
+  bundleCount: bed.bundleCount ?? 0,
+  sizeQuantities: fillUnfilledSizeQuantities(bed.sizeQuantities),
+});
 
 export const receivingCuttingService = {
   /** 读取裁床记录：优先用生产单详情内嵌 Preview，未提交草稿由页面内存维护 */
@@ -60,13 +73,20 @@ export const receivingCuttingService = {
     const supplierDetail = await requireSupplierDetail(productionColorId);
 
     const now = new Date().toISOString();
+    const targetBeds = beds.filter((bed) => targetIds.includes(bed.id));
+    const filledTargets = targetBeds.filter((bed) => !isBlankCuttingBed(bed));
+    if (filledTargets.length === 0) {
+      throw new Error('EMPTY_FORM');
+    }
+
+    const filledIds = new Set(filledTargets.map((bed) => bed.id));
     const nextBeds = beds.map((bed) => {
-      if (!targetIds.includes(bed.id)) return bed;
-      const total = sumQuantities(bed.sizeQuantities);
-      if (total <= 0 && bed.bundleCount <= 0) {
-        throw new Error('EMPTY_FORM');
-      }
-      return { ...bed, submitted: true, submittedAt: bed.submittedAt ?? now };
+      if (!filledIds.has(bed.id)) return bed;
+      return {
+        ...fillUnfilledCuttingQuantities(bed),
+        submitted: true,
+        submittedAt: bed.submittedAt ?? now,
+      };
     });
 
     // 提交前刷新详情，确保拿到最新 cropOrder Preview

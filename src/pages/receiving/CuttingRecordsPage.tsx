@@ -84,8 +84,8 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
         {
           id: `local-${Date.now()}`,
           bedNo: 1,
-          bundleCount: 0,
-          sizeQuantities: emptySizeQuantities(sizes),
+          bundleCount: null,
+          sizeQuantities: emptySizeQuantities(sizes, null),
           submitted: false,
         },
       ];
@@ -116,8 +116,8 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
     const bed: CuttingBedRecord = {
       id: `local-${Date.now()}`,
       bedNo: nextNo,
-      bundleCount: 0,
-      sizeQuantities: emptySizeQuantities(sizes),
+      bundleCount: null,
+      sizeQuantities: emptySizeQuantities(sizes, null),
       submitted: false,
     };
     // 新床次置顶；先写入展开态，避免先收起再展开的闪烁
@@ -281,6 +281,7 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
                     allowDecimal
                     decimalPlaces={1}
                     editable
+                    keepZero
                     onChange={(bundleCount) => updateBed(bed.id, { bundleCount })}
                     onInputFocus={onInputFocus}
                     showStepLarge={false}
@@ -289,6 +290,7 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
                 </VStack>
                 <ReceivingQuantityGrid
                   editable
+                  keepZero
                   onChange={(sizeQuantities) => updateBed(bed.id, { sizeQuantities })}
                   onInputFocus={onInputFocus}
                   sizes={sizes}
@@ -298,7 +300,7 @@ export const CuttingRecordsPage = ({ navigation, route }: CuttingRecordsPageProp
             ) : (
               <RecordDetailPanel
                 primaryLabel="扎数"
-                primaryValue={bed.bundleCount}
+                primaryValue={bed.bundleCount ?? 0}
                 items={items.map(({ key, label, value }) => ({ key, label, value }))}
               />
             )}

@@ -1,6 +1,8 @@
 import { designTokens, Text } from 'design-system-native';
 import { StyleSheet, View } from 'react-native';
 
+import type { SizeQuantity } from '@/types/receiving';
+
 export interface RecordDetailItem {
   key: string;
   label: string;
@@ -8,10 +10,7 @@ export interface RecordDetailItem {
 }
 
 /** 按计划码数顺序生成明细行，缺失码数补 0 */
-export const toSizeDetailItems = (
-  sizes: string[],
-  values: { size: string; quantity: number }[],
-): RecordDetailItem[] =>
+export const toSizeDetailItems = (sizes: string[], values: SizeQuantity[]): RecordDetailItem[] =>
   sizes.map((size) => ({
     key: size,
     label: size,

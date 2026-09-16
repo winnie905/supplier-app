@@ -56,7 +56,7 @@ export const mapCuttingBedToCropProcess = (bed: CuttingBedRecord): CropProcess =
     ...(isLocalRecordId(bed.id) ? {} : { id: bed.id }),
     ...(bed.submittedAt ? { cropDate: bed.submittedAt } : {}),
     type: 'Machine',
-    parameter: bed.bundleCount,
+    parameter: bed.bundleCount ?? 0,
     sizeRange,
     totalQuantity,
   };

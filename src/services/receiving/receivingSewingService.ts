@@ -3,17 +3,29 @@ import { sewOrderService } from '@/services/apps/sewOrderService';
 import {
   currentExceptionReporter,
   fetchFreshSupplierDetail,
-  sumQuantities,
   todayString,
   toWorkshopProductionRef,
 } from '@/services/receiving/receivingServiceShared';
-import { uniqueSizeNames } from '@/services/receiving/sizeQuantity';
+import {
+  fillUnfilledSizeQuantities,
+  isBlankSizeQuantities,
+  uniqueSizeNames,
+} from '@/services/receiving/sizeQuantity';
 import {
   persistWorkshopOrder,
   requireSupplierDetail,
   resolveWorkshopOrder,
 } from '@/services/receiving/workshopOrderWrite';
 import type { SewingDayRecord, SewingRecordsData } from '@/types/receiving';
+
+const isBlankSewingRecord = (record: SewingDayRecord) =>
+  isBlankSizeQuantities(record.upQuantities) && isBlankSizeQuantities(record.downQuantities);
+
+const fillUnfilledSewingQuantities = (record: SewingDayRecord): SewingDayRecord => ({
+  ...record,
+  upQuantities: fillUnfilledSizeQuantities(record.upQuantities),
+  downQuantities: fillUnfilledSizeQuantities(record.downQuantities),
+});
 
 const ensureRecordSizes = (record: SewingDayRecord, sizes: string[]): SewingDayRecord => ({
   ...record,
@@ -69,11 +81,20 @@ export const receivingSewingService = {
     const supplierDetail = await requireSupplierDetail(productionColorId);
 
     const now = new Date().toISOString();
+    const targetRecords = records.filter((record) => targetIds.includes(record.id));
+    const filledTargets = targetRecords.filter((record) => !isBlankSewingRecord(record));
+    if (filledTargets.length === 0) {
+      throw new Error('EMPTY_FORM');
+    }
+
+    const filledIds = new Set(filledTargets.map((record) => record.id));
     const nextRecords = records.map((record) => {
-      if (!targetIds.includes(record.id)) return record;
-      const total = sumQuantities(record.upQuantities) + sumQuantities(record.downQuantities);
-      if (total <= 0) throw new Error('EMPTY_FORM');
-      return { ...record, submitted: true, submittedAt: record.submittedAt ?? now };
+      if (!filledIds.has(record.id)) return record;
+      return {
+        ...fillUnfilledSewingQuantities(record),
+        submitted: true,
+        submittedAt: record.submittedAt ?? now,
+      };
     });
 
     const freshDetail = await fetchFreshSupplierDetail(supplierDetail);

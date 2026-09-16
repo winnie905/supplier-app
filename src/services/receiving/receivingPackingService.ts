@@ -5,10 +5,13 @@ import {
   currentExceptionReporter,
   fetchFreshSupplierDetail,
   resolveSupplierDetail,
-  sumQuantities,
   toWorkshopProductionRef,
 } from '@/services/receiving/receivingServiceShared';
-import { uniqueSizeNames } from '@/services/receiving/sizeQuantity';
+import {
+  fillUnfilledSizeQuantities,
+  isBlankSizeQuantities,
+  uniqueSizeNames,
+} from '@/services/receiving/sizeQuantity';
 import {
   persistWorkshopOrder,
   requireSupplierDetail,
@@ -76,12 +79,22 @@ export const receivingPackingService = {
     const supplierDetail = await requireSupplierDetail(productionColorId);
 
     const now = new Date().toISOString();
+    const targetBoxes = boxes.filter((box) => targetIds.includes(box.id));
+    const filledTargets = targetBoxes.filter((box) => !isBlankSizeQuantities(box.sizeQuantities));
+    if (targetIds.length > 0 && filledTargets.length === 0) {
+      throw new Error('EMPTY_FORM');
+    }
+
+    const filledIds = new Set(filledTargets.map((box) => box.id));
     const nextBoxes = boxes.map((box) => {
-      if (!targetIds.includes(box.id)) return box;
+      if (!filledIds.has(box.id)) return box;
       if (!box.cartonSpecId) throw new Error('NO_CARTON');
-      const total = sumQuantities(box.sizeQuantities);
-      if (total <= 0) throw new Error('EMPTY_FORM');
-      return { ...box, submitted: true, submittedAt: box.submittedAt ?? now };
+      return {
+        ...box,
+        sizeQuantities: fillUnfilledSizeQuantities(box.sizeQuantities),
+        submitted: true,
+        submittedAt: box.submittedAt ?? now,
+      };
     });
 
     const freshDetail = await fetchFreshSupplierDetail(supplierDetail);

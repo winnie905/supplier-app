@@ -59,8 +59,8 @@ export const SewingRecordsPage = ({ route }: SewingRecordsPageProps) => {
         {
           id: `local-${today}`,
           date: today,
-          upQuantities: emptySizeQuantities(sizes),
-          downQuantities: emptySizeQuantities(sizes),
+          upQuantities: emptySizeQuantities(sizes, null),
+          downQuantities: emptySizeQuantities(sizes, null),
           submitted: false,
         },
         ...list,
@@ -104,13 +104,14 @@ export const SewingRecordsPage = ({ route }: SewingRecordsPageProps) => {
       receivingService.submitSewingRecords(productionColorId, records, targetIds),
   });
 
-  /** 全部待车：计划数减去已提交的下车位总数，各条记录共用 */
+  /** 全部待车 = 裁剪数合计 − 下车位合计，各条记录共用 */
   const pendingTotal = useMemo(() => {
+    const cutTotal = detail?.moduleStatus.cutting.cutTotal ?? 0;
     const downTotal = records
       .filter((record) => record.submitted)
       .reduce((sum, record) => sum + sumQuantities(record.downQuantities), 0);
-    return Math.max(0, (detail?.quantity ?? 0) - downTotal);
-  }, [detail?.quantity, records]);
+    return Math.max(0, cutTotal - downTotal);
+  }, [detail?.moduleStatus.cutting.cutTotal, records]);
 
   /** 是否存在待提交/编辑中的记录，决定是否展示提交按钮 */
   const hasEditingRecord = records.some((record) => !record.submitted || record.id === editingId);
@@ -162,6 +163,7 @@ export const SewingRecordsPage = ({ route }: SewingRecordsPageProps) => {
                 <Text style={styles.sectionTitle}>上车位数量：</Text>
                 <ReceivingQuantityGrid
                   editable
+                  keepZero
                   onChange={(upQuantities) => updateRecord(record.id, { upQuantities })}
                   onInputFocus={onInputFocus}
                   sizes={sizes}
@@ -171,6 +173,7 @@ export const SewingRecordsPage = ({ route }: SewingRecordsPageProps) => {
                 <Text style={styles.sectionTitle}>下车位数量：</Text>
                 <ReceivingQuantityGrid
                   editable
+                  keepZero
                   onChange={(downQuantities) => updateRecord(record.id, { downQuantities })}
                   onInputFocus={onInputFocus}
                   sizes={sizes}

@@ -16,7 +16,7 @@ export type CartonSpecType = 'brand' | 'general';
 
 export interface SizeQuantity {
   size: string;
-  quantity: number;
+  quantity: number | null;
 }
 
 export interface ModuleStatusSummary {
@@ -117,7 +117,7 @@ export interface FactoryException {
 export interface CuttingBedRecord {
   id: string;
   bedNo: number;
-  bundleCount: number;
+  bundleCount: number | null;
   sizeQuantities: SizeQuantity[];
   submitted: boolean;
   submittedAt?: string;

@@ -90,7 +90,7 @@ export const mapSewingDayToCropProcesses = (record: SewingDayRecord): CropProces
 
   const upRange = toCropSizeRange(record.upQuantities);
   const upTotal = sumCropQuantity(upRange);
-  if (upTotal > 0 || record.upQuantities.some((item) => item.quantity > 0)) {
+  if (upTotal > 0 || record.upQuantities.some((item) => (item.quantity ?? 0) > 0)) {
     processes.push({
       ...(record.upProcessId && !isLocalRecordId(record.upProcessId)
         ? { id: record.upProcessId }

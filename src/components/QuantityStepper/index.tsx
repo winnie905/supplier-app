@@ -7,8 +7,8 @@ import MinusIcon from '@/assets/icons/minus.svg';
 import PlusIcon from '@/assets/icons/plus.svg';
 
 interface QuantityStepperProps {
-  value: number;
-  onChange: (next: number) => void;
+  value: number | null;
+  onChange: (next: number | null) => void;
   allowDecimal?: boolean;
   /** 小数位数上限；仅 allowDecimal 时生效，默认 2。 */
   decimalPlaces?: number;
@@ -16,6 +16,8 @@ interface QuantityStepperProps {
   showStepLarge?: boolean;
   stepLarge?: number;
   editable?: boolean;
+  /** 值为 0 时是否仍显示「0」；默认空着，避免尺码数量看起来像已填写 */
+  keepZero?: boolean;
   style?: StyleProp<ViewStyle>;
   onInputFocus?: (event: FocusEvent) => void;
 }
@@ -52,11 +54,14 @@ export const QuantityStepper = ({
   showStepLarge = true,
   stepLarge = 10,
   editable = true,
+  keepZero = false,
   style,
   onInputFocus,
 }: QuantityStepperProps) => {
   /** 输入过程中的原始文本：保留「1.」「1.0」这类中间态，避免被数值回写吞掉小数点 */
   const [draft, setDraft] = useState<string | null>(null);
+
+  const amount = value ?? 0;
 
   const setValue = (next: number) => {
     if (!editable) return;
@@ -65,8 +70,8 @@ export const QuantityStepper = ({
   };
 
   // 无数值 / 0：减号禁用；大于 0 开启减号；大于 stepLarge-1（默认 9）开启 -stepLarge
-  const decreaseDisabled = !editable || value <= 0;
-  const decreaseLargeDisabled = !editable || value <= stepLarge - 1;
+  const decreaseDisabled = !editable || amount <= 0;
+  const decreaseLargeDisabled = !editable || amount <= stepLarge - 1;
 
   return (
     <View style={[styles.stepper, style]}>
@@ -75,7 +80,7 @@ export const QuantityStepper = ({
           accessibilityRole="button"
           disabled={decreaseLargeDisabled}
           hitSlop={16}
-          onPress={() => setValue(value - stepLarge)}
+          onPress={() => setValue(amount - stepLarge)}
           style={[styles.stepBtn, decreaseLargeDisabled && styles.stepBtnDisabled]}
         >
           <MinusIcon
@@ -94,7 +99,7 @@ export const QuantityStepper = ({
           accessibilityRole="button"
           disabled={decreaseDisabled}
           hitSlop={16}
-          onPress={() => setValue(value - 1)}
+          onPress={() => setValue(amount - 1)}
           style={styles.iconBtn}
         >
           <MinusIcon
@@ -111,7 +116,7 @@ export const QuantityStepper = ({
             const cleaned = sanitizeNumericText(text, allowDecimal, decimalPlaces);
             setDraft(cleaned);
             if (cleaned === '' || cleaned === '.') {
-              onChange(0);
+              onChange(keepZero ? null : 0);
               return;
             }
             const parsed = allowDecimal ? parseFloat(cleaned) : parseInt(cleaned, 10);
@@ -120,13 +125,13 @@ export const QuantityStepper = ({
           onBlur={() => setDraft(null)}
           onFocus={onInputFocus}
           style={styles.input}
-          value={draft ?? (value === 0 ? '' : String(value))}
+          value={draft ?? (value == null || (value === 0 && !keepZero) ? '' : String(value))}
         />
         <Pressable
           accessibilityRole="button"
           disabled={!editable}
           hitSlop={16}
-          onPress={() => setValue(value + 1)}
+          onPress={() => setValue(amount + 1)}
           style={styles.iconBtn}
         >
           <PlusIcon color={editable ? ICON_COLOR : STEP_DISABLED_COLOR} height={16} width={16} />
@@ -138,7 +143,7 @@ export const QuantityStepper = ({
           accessibilityRole="button"
           disabled={!editable}
           hitSlop={16}
-          onPress={() => setValue(value + stepLarge)}
+          onPress={() => setValue(amount + stepLarge)}
           style={[styles.stepBtn, !editable && styles.stepBtnDisabled]}
         >
           <PlusIcon
