@@ -1,32 +1,33 @@
 import type { StoredSession } from '@/utils/auth/authStorage';
 
 import type { Permission, Role } from './roles';
+import type { User, UserId } from './user';
 import type { ProductEnum } from './workspace';
 
 /** 对齐 schema Supplier（挂在 User.supplier） */
 export interface AuthSupplier {
-  createdAt: string;
-  id: string;
-  isDeleted: boolean;
+  createdAt?: string;
+  id: UserId;
+  isDeleted?: boolean;
   name: string;
   supplierNo?: string | null;
   supplierState?: string | null;
   supplierType?: string | null;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
-export interface AuthUser {
+export interface AuthUser extends User {
   avatar: string;
   email: string;
-  id: string;
-  name: string;
+  id?: UserId;
+  name?: string;
   username: string;
   /** schema 为 [UserServiceJSON!]!，内容仍按 AuthProduct 结构使用 */
   products: AuthProduct[];
   permissions: Permission;
   firstName: string;
   lastName: string;
-  supplier: AuthSupplier;
+  supplier?: AuthSupplier;
 }
 
 export interface AuthProduct {

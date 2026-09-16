@@ -53,7 +53,7 @@ export interface CategoryItem {
   updatedAt?: string;
 }
 
-export interface User {
+export interface ProductionOrderUser {
   id?: number;
   username: string;
   email: string;
@@ -229,10 +229,10 @@ export interface CustomerPurchaseOrderOnProductionOrder {
   requiredProductionDate: string;
   createdAt: string;
   updatedAt: string;
-  businessFollower: User;
+  businessFollower: ProductionOrderUser;
   department: CategoryItem;
   group: CategoryItem;
-  productionFollower: User;
+  productionFollower: ProductionOrderUser;
   brand: Brand;
   exportParty?: ExporterParty;
 }
@@ -274,8 +274,8 @@ export interface ProductionOrderVO {
   shipInformation: string;
   cropOrder: CropOrder;
   template: Template;
-  user: User;
-  lastUpdater: User;
+  user: ProductionOrderUser;
+  lastUpdater: ProductionOrderUser;
   bomItems: QuoteMaterial[];
   productionProcesses: QuoteProcess[];
   secondaryProcesses: SecondaryProcessInfo[];

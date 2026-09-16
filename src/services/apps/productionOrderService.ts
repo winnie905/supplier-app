@@ -26,11 +26,11 @@ import type { ProductionOrderVO } from '@/types/productionOrder';
 import type {
   ConfirmArriveMaterialInput,
   CreateExceptionRecordInput,
+  ExceptionRecord,
   ProductionOrderSupplierCount,
   ProductionOrderSupplierDetail,
   ProductionOrderSupplierSearchInput,
   ProductionOrderSupplierSearchResult,
-  SupplierExceptionRecord,
 } from '@/types/supplierProductionOrder';
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -225,9 +225,9 @@ export const productionOrderService = {
     });
   },
 
-  async createExceptionRecord(input: CreateExceptionRecordInput): Promise<SupplierExceptionRecord> {
+  async createExceptionRecord(input: CreateExceptionRecordInput): Promise<ExceptionRecord> {
     const { data } = await apolloClient.mutate<{
-      createProductionOrderExceptionRecord: SupplierExceptionRecord;
+      createProductionOrderExceptionRecord: ExceptionRecord;
     }>({
       mutation: CREATE_PRODUCTION_ORDER_EXCEPTION_RECORD,
       variables: { input },

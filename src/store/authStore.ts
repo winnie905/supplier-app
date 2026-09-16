@@ -97,11 +97,14 @@ const mergePolledUser = (
   if (!incoming) return prev ?? null;
   if (!prev) return incoming;
 
+  const supplier = incoming.supplier ? { ...prev.supplier, ...incoming.supplier } : prev.supplier;
+  const { supplier: _incomingSupplier, products, ...incomingRest } = incoming;
+
   return {
     ...prev,
-    ...incoming,
-    supplier: incoming.supplier ? { ...prev.supplier, ...incoming.supplier } : prev.supplier,
-    products: incoming.products?.length ? incoming.products : prev.products,
+    ...incomingRest,
+    ...(supplier ? { supplier } : {}),
+    products: products?.length ? products : prev.products,
   };
 };
 

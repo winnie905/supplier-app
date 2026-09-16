@@ -2,8 +2,8 @@ import { EXCEPTION_MODULE_LABELS } from '@/constants/receiving';
 import { formatUserName } from '@/services/receiving/mapReceivingHelpers';
 import type { FactoryException } from '@/types/receiving';
 import type {
+  ExceptionRecord,
   ProductionOrderSupplierDetail,
-  SupplierExceptionRecord,
 } from '@/types/supplierProductionOrder';
 import { formatDateTime } from '@/utils/date';
 import { encodeProductionColorId } from '@/utils/receiving/productionColorId';
@@ -42,7 +42,7 @@ const parseRelatedItems = (
 };
 
 /** 问题描述正文：优先 description；兼容旧版 reportContent（【类型】物料\\n描述） */
-const resolveExceptionDescription = (record: SupplierExceptionRecord): string => {
+const resolveExceptionDescription = (record: ExceptionRecord): string => {
   const extend = record.moduleExtend;
   if (typeof extend?.description === 'string') {
     return extend.description.trim();
@@ -62,7 +62,7 @@ const resolveExceptionDescription = (record: SupplierExceptionRecord): string =>
 };
 
 export const mapExceptionRecordToFactoryException = (
-  record: SupplierExceptionRecord,
+  record: ExceptionRecord,
   productionColorId: string,
 ): FactoryException => {
   const module =
@@ -103,7 +103,7 @@ export const mapExceptionRecordToFactoryException = (
   };
 };
 
-const reportedAtTime = (record: SupplierExceptionRecord): number => {
+const reportedAtTime = (record: ExceptionRecord): number => {
   if (!record.reportedAt) return 0;
   const time = new Date(record.reportedAt).getTime();
   return Number.isNaN(time) ? 0 : time;

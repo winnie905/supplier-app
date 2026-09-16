@@ -3,7 +3,8 @@
  */
 
 import type { BoxSpecificationType } from '@/types/cropOrder';
-import type { SupplierApiBrand, SupplierApiUser } from '@/types/supplierProductionOrder';
+import type { Brand } from '@/types/supplierProductionOrder';
+import type { User } from '@/types/user';
 
 /** GET /api/box_specification/brand 单条 */
 export interface BoxSpecification {
@@ -14,11 +15,11 @@ export interface BoxSpecification {
   height?: number;
   unit?: string;
   type?: BoxSpecificationType;
-  brand?: SupplierApiBrand;
+  brand?: Brand;
   createdAt?: string;
   updatedAt?: string;
-  user?: SupplierApiUser;
-  lastUpdater?: SupplierApiUser;
+  user?: User;
+  lastUpdater?: User;
 }
 
 export interface BoxSpecificationByBrandInput {

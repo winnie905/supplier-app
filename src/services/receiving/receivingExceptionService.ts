@@ -5,10 +5,10 @@ import {
 } from '@/services/receiving/supplierDetailCache';
 import { useAuthStore } from '@/store/authStore';
 import type { ExceptionModule, FactoryException } from '@/types/receiving';
-import type { SupplierApiUser } from '@/types/supplierProductionOrder';
+import type { User } from '@/types/user';
 
 /** 异常上报的 reporter 为必填入参，取当前登录用户 */
-export const currentExceptionReporter = (): SupplierApiUser => {
+export const currentExceptionReporter = (): User => {
   const user = useAuthStore.getState().user;
   if (!user) return {};
 

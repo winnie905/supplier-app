@@ -5,6 +5,7 @@
 
 import type { CropOrder } from '@/types/cropOrder';
 import type { ProductImage } from '@/types/productionOrder';
+import type { User } from '@/types/user';
 
 /** 生产单状态：对齐 ErpProductionOrderSupplierSearchStatus */
 export type SupplierProductionOrderStatus =
@@ -17,24 +18,13 @@ export type SupplierProductionOrderStatus =
 /** 物料确认到料状态：对齐 ErpQuoteMaterialReceiveMaterialStatus */
 export type ReceiveMaterialStatus = 'Pending' | 'Arrived';
 
-export interface SupplierApiUser {
-  id?: number;
-  username?: string;
-  firstName?: string;
-  lastName?: string;
-  pinyinAbbreviation?: string;
-  email?: string;
-  mobile?: string;
-  avatar?: string;
-}
-
-export interface SupplierApiBrand {
+export interface Brand {
   id?: number;
   name: string;
   customerId?: number;
 }
 
-export interface SupplierApiSizeRange {
+export interface SizeRange {
   name: string;
   quantity?: number;
   outboundQuantity?: number;
@@ -96,9 +86,9 @@ export interface ProductionOrderSupplierSearchRecord {
   productionOrderType?: string;
   customerCode?: string;
   customerPO?: string;
-  brand?: SupplierApiBrand;
-  businessFollower?: SupplierApiUser;
-  productionFollower?: SupplierApiUser;
+  brand?: Brand;
+  businessFollower?: User;
+  productionFollower?: User;
   productionType?: string;
   quantity?: number;
   productionOrderStatus?: string;
@@ -123,7 +113,7 @@ export interface ProductionOrderSupplierSearchResult {
 }
 
 /** getProductionOrder(productionOrderCode, color) */
-export interface SupplierBomItem {
+export interface BomItem {
   id: number;
   type?: string;
   actionRegion?: string;
@@ -152,23 +142,23 @@ export interface SupplierBomItem {
   };
 }
 
-export interface SupplierMaterialPackage {
+export interface MaterialPackage {
   id: string;
   name: string;
   receiveMaterialStatus?: ReceiveMaterialStatus;
   remark?: string;
 }
 
-export interface SupplierExceptionRecord {
+export interface ExceptionRecord {
   id: string;
   productionId: number;
   module: string;
   moduleExtend?: Record<string, unknown>;
   type: string;
-  reporter?: SupplierApiUser;
+  reporter?: User;
   reportedAt?: string;
   reportContent?: string;
-  replier?: SupplierApiUser;
+  replier?: User;
   repliedAt?: string;
   replyContent?: string;
   isReplied?: boolean;
@@ -214,11 +204,11 @@ export interface ProductionOrderSupplierDetail {
     code?: string;
     type?: string;
     quantity?: number;
-    sizeRange?: SupplierApiSizeRange[];
+    sizeRange?: SizeRange[];
     requiredProductionDate?: string;
-    brand?: SupplierApiBrand;
-    productionFollower?: SupplierApiUser;
-    businessFollower?: SupplierApiUser;
+    brand?: Brand;
+    productionFollower?: User;
+    businessFollower?: User;
     /** 包装要求附图 */
     packageAttachment?: string[];
   };
@@ -228,17 +218,17 @@ export interface ProductionOrderSupplierDetail {
     customerCode?: string;
     category?: string;
     designImageUrls?: string[];
-    brand?: SupplierApiBrand;
+    brand?: Brand;
   };
   /** 色码样衣图：首页 Hero = frontImages + backImages（正面优先） */
   template?: {
     frontImages?: { url: string; description?: string }[];
     backImages?: { url: string; description?: string }[];
   };
-  bomItems?: SupplierBomItem[];
-  materialPackages?: SupplierMaterialPackage[];
-  packMaterials?: SupplierMaterialPackage[];
-  exceptionRecords?: SupplierExceptionRecord[];
+  bomItems?: BomItem[];
+  materialPackages?: MaterialPackage[];
+  packMaterials?: MaterialPackage[];
+  exceptionRecords?: ExceptionRecord[];
   /** ErpCropOrderPreviewDto；无则尚未创建，不可用生产单 id 代替 */
   cropOrder?: CropOrder;
   /** ErpCropOrderPreviewDto；无则尚未创建，不可用生产单 id 代替 */
@@ -277,6 +267,6 @@ export interface CreateExceptionRecordInput {
   productionId: number;
   module: string;
   type: string;
-  reporter: SupplierApiUser;
+  reporter: User;
   moduleExtend?: Record<string, unknown>;
 }

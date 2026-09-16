@@ -8,11 +8,8 @@
  * 尾部单读取时额外回传 tailOrderStorage（装箱工序，结构同 cropOrderStorage）。
  */
 
-import type {
-  SupplierApiBrand,
-  SupplierApiSizeRange,
-  SupplierApiUser,
-} from '@/types/supplierProductionOrder';
+import type { Brand, SizeRange as SupplierSizeRange } from '@/types/supplierProductionOrder';
+import type { User } from '@/types/user';
 
 /** 裁床/车缝/尾部单据状态（对齐 ErpCropOrderStatus） */
 export type WorkshopOrderStatus =
@@ -55,7 +52,7 @@ export interface BoxSpecificationRef {
   height?: number;
   unit?: string;
   type?: BoxSpecificationType;
-  brand?: SupplierApiBrand;
+  brand?: Brand;
 }
 
 /** 裁片尺码数量 */
@@ -74,7 +71,7 @@ export interface CropProcess {
   type?: CropProcessType;
   sizeRange?: CropProcessSizeRange[];
   totalQuantity?: number;
-  maintainer?: SupplierApiUser;
+  maintainer?: User;
   maintenanceDate?: string;
   /** 扎数（裁床 UI bundleCount） */
   parameter?: number;
@@ -114,9 +111,9 @@ export interface WorkshopProductionOrderRef {
     type?: string;
     purchaseCode?: string;
     quantity?: number;
-    sizeRange?: SupplierApiSizeRange[];
+    sizeRange?: SupplierSizeRange[];
     requiredProductionDate?: string;
-    brand?: SupplierApiBrand & {
+    brand?: Brand & {
       invoiceRegistrationAddress?: string;
       invoiceRegistrationNumber?: string;
     };
@@ -125,7 +122,7 @@ export interface WorkshopProductionOrderRef {
     code?: string;
     category?: string;
     designImageUrls?: string[];
-    brand?: SupplierApiBrand;
+    brand?: Brand;
   };
 }
 
@@ -138,8 +135,8 @@ export interface CropOrder {
   id?: number;
   status?: WorkshopOrderStatus;
   cropOrderStorage?: CropOrderStorage;
-  lastUpdater?: SupplierApiUser;
-  user?: SupplierApiUser;
+  lastUpdater?: User;
+  user?: User;
   createdAt?: string;
   updatedAt?: string;
   cropOrderType?: CropOrderType;

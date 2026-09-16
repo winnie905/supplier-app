@@ -10,12 +10,12 @@ import type {
   MaterialModuleStatus,
 } from '@/types/receiving';
 import type {
+  BomItem,
   ConfirmArriveCommonMaterialInput,
   ConfirmArriveMaterialInput,
+  MaterialPackage,
   ProductionOrderSupplierDetail,
   ReceiveMaterialStatus,
-  SupplierBomItem,
-  SupplierMaterialPackage,
 } from '@/types/supplierProductionOrder';
 import { encodeProductionColorId } from '@/utils/receiving/productionColorId';
 
@@ -49,16 +49,15 @@ const FIXED_NAME_ALIASES: Record<string, string> = {
 const normalizeMaterialName = (name: string) => FIXED_NAME_ALIASES[name] ?? name;
 
 const findApiMaterialByName = (
-  list: SupplierMaterialPackage[] | undefined,
+  list: MaterialPackage[] | undefined,
   name: string,
-): SupplierMaterialPackage | undefined =>
-  list?.find((item) => normalizeMaterialName(item.name) === name);
+): MaterialPackage | undefined => list?.find((item) => normalizeMaterialName(item.name) === name);
 
 const buildFixedMaterialItems = (
   catalog: readonly { id: string; name: string }[],
   category: 'packaging' | 'data_package',
   groupName: string,
-  apiList: SupplierMaterialPackage[] | undefined,
+  apiList: MaterialPackage[] | undefined,
   quantity?: string,
 ): MaterialItem[] =>
   catalog.map((entry) => {
@@ -74,12 +73,12 @@ const buildFixedMaterialItems = (
   });
 
 /** 数量与幅宽共用 bomItem.unit */
-const resolveBomUnit = (item: SupplierBomItem): string | undefined => {
+const resolveBomUnit = (item: BomItem): string | undefined => {
   const label = [item.unit?.unit, item.unit?.name].find((value) => Boolean(value?.trim()));
   return label?.trim();
 };
 
-export const mapBomItemToMaterialItem = (item: SupplierBomItem): MaterialItem => {
+export const mapBomItemToMaterialItem = (item: BomItem): MaterialItem => {
   const color = item.materialColor ?? item.material?.color;
   const quantity = item.meters ?? item.usage ?? item.formula;
   const unit = resolveBomUnit(item);
@@ -144,7 +143,7 @@ export const buildConfirmArriveMaterialInput = (
 
   const buildFixedCommon = (
     catalog: readonly { id: string; name: string }[],
-    apiList: SupplierMaterialPackage[] | undefined,
+    apiList: MaterialPackage[] | undefined,
   ): ConfirmArriveCommonMaterialInput[] =>
     catalog.map((entry) => {
       const matched = findApiMaterialByName(apiList, entry.name);

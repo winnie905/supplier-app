@@ -1,7 +1,7 @@
 import { uniqueSizeNames } from '@/services/receiving/sizeQuantity';
 import type { CropProcess, CropProcessSizeRange } from '@/types/cropOrder';
 import type { SizeQuantity } from '@/types/receiving';
-import type { SupplierApiUser } from '@/types/supplierProductionOrder';
+import type { User } from '@/types/user';
 
 /** CropProcess.sizeRange → 尺码数量列表（裁床/车缝/尾部共用） */
 export const toSizeQuantities = (process: CropProcess): SizeQuantity[] =>
@@ -36,15 +36,15 @@ export const planSizeNames = (...candidates: (string[] | undefined)[]): string[]
 /** 提交裁床/车缝/尾部时写入 CropProcess 的维护人与维护时间 */
 export interface CropProcessSubmitAudit {
   targetIds: string[];
-  maintainer: SupplierApiUser;
+  maintainer: User;
   maintenanceDate: string;
 }
 
 /** GraphQL User 入参不能带 __typename，只回传 schema 允许的字段 */
-const sanitizeMaintainer = (user?: SupplierApiUser): SupplierApiUser | undefined => {
+const sanitizeMaintainer = (user?: User): User | undefined => {
   if (!user) return undefined;
   const id = user.id != null ? Number(user.id) : NaN;
-  const next: SupplierApiUser = {
+  const next: User = {
     ...(Number.isFinite(id) ? { id } : {}),
     ...(user.username ? { username: user.username } : {}),
     ...(user.firstName ? { firstName: user.firstName } : {}),
