@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+：清除原生 SplashScreen 圆形 icon，让 compat_splash_screen.xml 接管显示 -->
+    <style name="Theme.BootSplash" parent="Theme.BootSplash.v30">
+        <item name="android:windowSplashScreenBackground">@color/bootsplash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/transparent_pixel</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/transparent_pixel</item>
+    </style>
+</resources>
